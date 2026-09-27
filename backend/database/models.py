@@ -59,6 +59,10 @@ def new_conversation(session_id: str, user_id: str, model_used: str) -> dict:
         "model_used": model_used,
         "api_used": None,
         "created_at": now_utc(),
+        # None until the user renames the chat (GUI's Rename Chat
+        # feature). When set, this overrides the auto-derived preview
+        # title (first user message) in routers/conversations.py.
+        "custom_title": None,
     }
 
 
@@ -102,4 +106,16 @@ def new_api_usage(api_name: str) -> dict:
         "last_used": None,
         "is_rate_limited": False,
         "rate_limit_reset_at": None,
+    }
+
+
+def default_user_settings(user_id: str) -> dict:
+    """Shape of a document in the `settings` collection."""
+    return {
+        "user_id": user_id,
+        "theme": "dark",
+        "preferred_provider_order": "gemini,groq,cerebras,nvidia,mistral",
+        "stream_response": True,
+        "save_history": True,
+        "updated_at": now_utc(),
     }

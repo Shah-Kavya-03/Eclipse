@@ -16,7 +16,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from database.connection import connect_to_mongo, close_mongo_connection
-from routers import health, chat, logs, auth, conversations, admin, anomalies, reports
+from routers import health, chat, logs, auth, conversations, admin, anomalies, reports, settings
 
 load_dotenv()
 
@@ -50,7 +50,6 @@ app.add_middleware(
 )
 
 # Routers — each feature area registers its own router here.
-# As routers/chat.py, routers/logs.py etc. get built, add them below.
 app.include_router(health.router)
 app.include_router(chat.router)
 app.include_router(logs.router)
@@ -59,6 +58,7 @@ app.include_router(conversations.router)
 app.include_router(admin.router)
 app.include_router(anomalies.router)
 app.include_router(reports.router)
+app.include_router(settings.router)
 
 
 @app.get("/")

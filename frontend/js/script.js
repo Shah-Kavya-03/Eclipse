@@ -867,7 +867,7 @@ function renderRecentChats() {
                 renameInput.select();
             }, 100);
 
-            const saveRename = () => {
+            const saveRename = async () => {
 
                 const newTitle = renameInput.value.trim();
 
@@ -889,6 +889,27 @@ function renderRecentChats() {
                 toast("Chat renamed", "success");
 
                 cleanupRename();
+
+                // Persist for logged-in users — without this, the
+                // rename above is visual-only and reverts next time
+                // the sidebar refreshes from GET /conversations,
+                // since the backend otherwise always recomputes the
+                // title from the first message. Guests stay fully
+                // local (see refreshConversationsFromBackend's note
+                // on why guest chats aren't backend-synced).
+                if (currentUser?.user_id) {
+
+                    try {
+                        await fetch(`${API_BASE}/conversations/${encodeURIComponent(chat.id)}/title`, {
+                            method: "PATCH",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ title: newTitle })
+                        });
+                    } catch (err) {
+                        console.warn("Rename did not persist to backend (kept locally):", err);
+                    }
+
+                }
 
             };
 

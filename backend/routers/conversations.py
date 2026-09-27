@@ -2,16 +2,23 @@
 GET /conversations?user_id=...
 GET /conversations/:session_id
 DELETE /conversations/:session_id
+PATCH /conversations/:session_id/title
 
-Powers the future Universal Sidebar: listing a user's past chats,
-reopening one, and deleting one.
+Powers the Universal Sidebar: listing a user's past chats, reopening
+one, deleting one, and renaming one (added to match the GUI's Rename
+Chat feature).
 """
 
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
 
 from database.connection import get_db
 
 router = APIRouter(prefix="/conversations", tags=["Conversations"])
+
+
+class RenameRequest(BaseModel):
+    title: str = Field(..., min_length=1, max_length=100)
 
 
 def _serialize_conversation(doc: dict, include_messages: bool = False) -> dict:
@@ -23,10 +30,11 @@ def _serialize_conversation(doc: dict, include_messages: bool = False) -> dict:
         "api_used": doc.get("api_used"),
         "created_at": doc.get("created_at").isoformat() if doc.get("created_at") else None,
         "message_count": len(doc.get("messages", [])),
-        # A short preview title for sidebar list items — first user
-        # message, truncated, so the sidebar doesn't need a separate
-        # "title" field synced from audit_logs.
-        "title": _preview_title(doc.get("messages", [])),
+        # A user-set custom_title (via PATCH .../title) always wins.
+        # Otherwise fall back to the auto-derived preview — first
+        # user message, truncated — so a chat still has a sensible
+        # title before it's ever renamed.
+        "title": doc.get("custom_title") or _preview_title(doc.get("messages", [])),
     }
     if include_messages:
         result["messages"] = [
@@ -69,6 +77,27 @@ async def get_conversation(session_id: str):
         raise HTTPException(status_code=404, detail="Conversation not found.")
 
     return _serialize_conversation(doc, include_messages=True)
+
+
+@router.patch("/{session_id}/title")
+async def rename_conversation(session_id: str, req: RenameRequest):
+    """
+    Sets a custom title for a conversation, persisting the GUI's
+    Rename Chat feature server-side. Without this, a rename would
+    revert the next time the sidebar refreshes from the backend,
+    since the title is otherwise always recomputed from the first
+    message.
+    """
+    db = get_db()
+
+    result = await db.conversations.update_one(
+        {"session_id": session_id},
+        {"$set": {"custom_title": req.title.strip()}},
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Conversation not found.")
+
+    return {"session_id": session_id, "title": req.title.strip()}
 
 
 @router.delete("/{session_id}")

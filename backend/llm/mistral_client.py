@@ -1,9 +1,15 @@
-"""Mistral API client — OpenAI-compatible, see openai_compatible_client.py."""
-
+import os
 from llm.openai_compatible_client import send as _send
 
 _BASE_URL = "https://api.mistral.ai/v1"
-_MODEL_NAME = "mistral-small-latest"
+
+
+_DEFAULT_MODELS = [
+    os.getenv("MISTRAL_MODEL", "mistral-small-latest"),
+    "mistral-small-latest",
+    "open-mistral-7b",
+    "mistral-large-latest",
+]
 
 
 def send(messages: list[dict]) -> dict:
@@ -11,5 +17,5 @@ def send(messages: list[dict]) -> dict:
         messages,
         api_key_env_var="MISTRAL_API_KEY",
         base_url=_BASE_URL,
-        model_name=_MODEL_NAME,
+        model_name=_DEFAULT_MODELS,
     )

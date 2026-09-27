@@ -1,0 +1,201 @@
+================================================================================
+ECLIPSE V2 — MERN STACK & PYTHON MICROSERVICE INTEGRATION BLUEPRINT
+================================================================================
+
+1. ARCHITECTURAL OVERVIEW
+--------------------------------------------------------------------------------
+The V2 architecture establishes a high-performance decoupled system where:
+- Web API Gateway & CRUD Engine: Node.js + Express.js + MongoDB (Mongoose)
+  Handles all user authentication (JWT/bcrypt), conversation management, user
+  settings, administrative moderation, and request proxying.
+- Dedicated ML & Security Microservice: Python + FastAPI
+  Retained as an internal-only engine (not exposed directly to browsers) responsible
+  strictly for Presidio PII anonymization, Detoxify toxicity scoring, regex/heuristic
+  security guardrails, Isolation Forest anomaly detection, and LLM provider rotation.
+- Modern Client Interface: React (Vite + React 18)
+  Component-driven frontend consuming the unified Express.js API gateway.
+
+Architecture Diagram:
+[ Browser / React Client ]
+           │  (REST API calls with JWT)
+           ▼
+[ Node.js / Express.js Gateway (Port 5000) ] ────► [ MongoDB (Atlas / Local) ]
+           │  (Internal HTTP / Shared Secret)
+           ▼
+[ Python FastAPI ML Microservice (Port 8001) ] ──► [ LLM Providers (Gemini/Groq/etc.) ]
+
+
+2. PROPOSED DIRECTORY STRUCTURE
+--------------------------------------------------------------------------------
+Eclipse/
+├── client/                     # React Frontend (Vite + Tailwind / Vanilla CSS)
+│   ├── public/
+│   ├── src/
+│   │   ├── assets/
+│   │   ├── components/         # ChatBox, Sidebar, AuditTable, Modals, Badges
+│   │   ├── context/            # AuthContext, ChatContext, ThemeContext
+│   │   ├── hooks/              # useChat, useAuth, useAuditLogs
+│   │   ├── pages/              # ChatPage, AuditPage, SettingsPage
+│   │   ├── services/           # api.js (centralized Axios / Fetch client)
+│   │   ├── App.jsx
+│   │   └── main.jsx
+│   ├── package.json
+│   └── vite.config.js
+│
+├── server/                     # Node.js + Express API Gateway
+│   ├── config/
+│   │   └── db.js               # Mongoose connection logic
+│   ├── controllers/
+│   │   ├── authController.js   # Signup, Login, Profile
+│   │   ├── chatController.js   # Routes prompt to Python microservice
+│   │   ├── conversationController.js # CRUD for sessions and title renaming
+│   │   ├── logsController.js   # Audit trail retrieval & aggregation
+│   │   ├── settingsController.js # User preferences
+│   │   └── adminController.js  # Role-gated admin operations
+│   ├── middleware/
+│   │   ├── authMiddleware.js   # JWT verification & req.user attachment
+│   │   ├── adminMiddleware.js  # Role check (is_admin === true)
+│   │   └── errorHandler.js    # Standardized JSON error response
+│   ├── models/
+│   │   ├── User.js             # Mongoose User schema
+│   │   ├── Conversation.js     # Mongoose Conversation schema
+│   │   ├── AuditLog.js         # Mongoose AuditLog schema (DPDP compliant)
+│   │   ├── Anomaly.js          # Mongoose Anomaly schema
+│   │   ├── Setting.js          # Mongoose User Settings schema
+│   │   └── ApiUsage.js         # Provider rate-limit & token metrics
+│   ├── routes/
+│   │   ├── authRoutes.js
+│   │   ├── chatRoutes.js
+│   │   ├── conversationRoutes.js
+│   │   ├── logRoutes.js
+│   │   ├── settingRoutes.js
+│   │   └── adminRoutes.js
+│   ├── services/
+│   │   └── pythonMlClient.js   # Axios client forwarding to Python on port 8001
+│   ├── .env.example
+│   ├── package.json
+│   └── server.js               # Express app entry point
+│
+└── backend/                    # Python FastAPI Microservice (Internal ML Engine)
+    ├── main.py                 # Internal FastAPI server (Port 8001)
+    ├── requirements.txt
+    ├── security/               # Presidio, Detoxify, Regex Injection filter
+    ├── llm/                    # Provider rotation (Gemini, Groq, Cerebras, etc.)
+    └── ml/                     # Isolation Forest & ReportLab PDF generator
+
+
+3. MONGOOSE SCHEMA DEFINITIONS (EXPRESS SERVER)
+--------------------------------------------------------------------------------
+
+A. User Schema (`server/models/User.js`):
+   - name: { type: String, required: true }
+   - email: { type: String, required: true, unique: true, lowercase: true }
+   - password_hashed: { type: String, required: true }
+   - is_admin: { type: Boolean, default: false }
+   - is_flagged: { type: Boolean, default: false }
+   - created_at: { type: Date, default: Date.now }
+
+B. Conversation Schema (`server/models/Conversation.js`):
+   - session_id: { type: String, required: true, unique: true, index: true }
+   - user_id: { type: String, required: true, index: true }
+   - status: { type: String, enum: ["Protected", "Modified", "Blocked"], default: "Protected" }
+   - model_used: { type: String, default: null }
+   - custom_title: { type: String, default: null }
+   - messages: [
+       {
+         sender: { type: String, enum: ["user", "assistant"], required: true },
+         text: { type: String, required: true },
+         timestamp: { type: Date, default: Date.now }
+       }
+     ]
+   - created_at: { type: Date, default: Date.now }
+
+C. Audit Log Schema (`server/models/AuditLog.js`):
+   - session_id: { type: String, required: true, index: true }
+   - user_id: { type: String, required: true, index: true }
+   - title: { type: String }
+   - prompt_masked: { type: String, required: true }
+   - response: { type: String, default: null }
+   - model_used: { type: String, default: null }
+   - api_used: { type: String, default: null }
+   - status: { type: String, required: true }
+   - threat_tier: { type: Number, required: true }
+   - lime_explanation: { type: String, default: null }
+   - timestamp: { type: Date, default: Date.now, index: true }
+
+
+4. EXPRESS TO PYTHON MICROSERVICE FORWARDING PROTOCOL
+--------------------------------------------------------------------------------
+When a user sends a prompt:
+1. React Client -> `POST /api/chat` on Express Gateway (with JWT Bearer token).
+2. Express verifies JWT, validates `session_id`, and extracts `user_id`.
+3. Express calls Python Internal Microservice via HTTP POST:
+   URL: `http://127.0.0.1:8001/internal/process-chat`
+   Headers: { "X-Internal-Secret": process.env.INTERNAL_SERVICE_KEY }
+   Body: { prompt, session_id, user_id, history: [...] }
+4. Python runs Presidio PII detector + Toxicity scorer + Regex injection filter.
+   - If blocked: returns classification status & explanation immediately.
+   - If allowed: executes LLM rotation with rate-limit failover, inspects LLM output,
+     and returns final text + masked prompt.
+5. Python persists audit trail into MongoDB `audit_logs` (or returns payload for Express to persist).
+6. Express updates `conversations` collection and returns structured JSON response to React.
+
+
+5. EXPRESS API GATEWAY ROUTE MAPPINGS
+--------------------------------------------------------------------------------
+All existing V1 API contracts are preserved 1:1 with standard REST endpoints:
+
+- Authentication:
+  * POST /api/auth/signup         -> Controller: authController.signup
+  * POST /api/auth/login          -> Controller: authController.login
+  * POST /api/auth/logout         -> Controller: authController.logout
+  * GET  /api/auth/me             -> Controller: authController.getCurrentUser
+
+- Chat & Inference:
+  * POST /api/chat                -> Controller: chatController.processChat
+
+- Conversations (Sidebar):
+  * GET    /api/conversations     -> Controller: conversationController.listUserConversations
+  * GET    /api/conversations/:id -> Controller: conversationController.getConversationById
+  * PATCH  /api/conversations/:id/title -> Controller: conversationController.renameTitle
+  * DELETE /api/conversations/:id -> Controller: conversationController.deleteConversation
+
+- Audit & Security Telemetry:
+  * GET /api/logs                 -> Controller: logsController.getLogs
+  * GET /api/dashboard-stats      -> Controller: logsController.getDashboardStats
+  * GET /api/anomalies            -> Proxies to Python /internal/anomalies
+  * GET /api/report/download      -> Proxies to Python /internal/report/download
+
+- User Settings:
+  * GET  /api/settings            -> Controller: settingsController.getSettings
+  * PUT  /api/settings            -> Controller: settingsController.updateSettings
+  * POST /api/settings/clear-history -> Controller: settingsController.clearHistory
+
+- Administration:
+  * GET /api/admin/users          -> Controller: adminController.listUsers
+  * GET /api/admin/stats          -> Controller: adminController.getAdminStats
+  * PUT /api/admin/user/:id/flag  -> Controller: adminController.flagUser
+
+
+6. STEP-BY-STEP MIGRATION ORDER
+--------------------------------------------------------------------------------
+Phase 1: Environment & Express Scaffolding
+- Initialize `server/` directory, configure `package.json` dependencies (express, mongoose,
+  jsonwebtoken, bcryptjs, cors, dotenv, axios).
+- Implement database connection (`config/db.js`) pointing to MongoDB.
+
+Phase 2: Auth, Conversation & Settings Migration
+- Port JWT creation, password hashing, and user authentication to Express controllers.
+- Port conversation CRUD and title renaming to Mongoose models.
+- Port user settings endpoints.
+
+Phase 3: Python Microservice Decoupling
+- Refactor Python backend into a dedicated internal microservice on port 8001.
+- Restrict Python endpoints to `/internal/*` with header authentication (`X-Internal-Secret`).
+- Wire Express `chatController` to call the Python internal service.
+
+Phase 4: Verification & Parity Testing
+- Verify end-to-end compatibility against existing frontend before switching React UI.
+- Validate DPDP compliance data integrity and rate-limit rotation mechanics.
+
+================================================================================

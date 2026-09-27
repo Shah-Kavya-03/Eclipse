@@ -11,7 +11,6 @@ reorder API_ROTATION_ORDER — chat.py never changes.
 
 import os
 from datetime import datetime, timezone, timedelta
-
 from database.connection import get_db
 from llm import gemini_client, groq_client, cerebras_client, nvidia_client, mistral_client
 
@@ -61,6 +60,9 @@ async def _is_still_rate_limited(api_name: str) -> bool:
     reset_at = usage.get("rate_limit_reset_at")
     if reset_at is None:
         return True  # flagged but no reset time recorded — be conservative
+
+    if reset_at.tzinfo is None:
+        reset_at = reset_at.replace(tzinfo=timezone.utc)
 
     if datetime.now(timezone.utc) >= reset_at:
         await db.api_usage.update_one(
@@ -114,12 +116,14 @@ async def get_completion(messages: list[dict]) -> dict:
 
     for provider_name, send_fn in providers:
         if await _is_still_rate_limited(provider_name):
+            print(f"[api_router] Skipping {provider_name}: currently in rate-limit cooldown.")
             continue
 
         result = send_fn(messages)
 
         if result["error"] is None:
             await _record_usage(provider_name, success=True)
+            print(f"[api_router] Successfully generated response via {provider_name}.")
             return {
                 "text": result["text"],
                 "model_used": provider_name,
@@ -127,11 +131,16 @@ async def get_completion(messages: list[dict]) -> dict:
                 "all_rate_limited": False,
             }
 
-        rate_limited = result["error"]["type"] == "rate_limit"
+        error_type = result["error"].get("type")
+        error_msg = result["error"].get("message")
+        print(f"[api_router] Provider {provider_name} failed ({error_type}): {error_msg}")
+
+        rate_limited = error_type == "rate_limit"
         await _record_usage(provider_name, success=False, rate_limited=rate_limited)
         # Not rate limited -> some other error (bad/missing key, network).
         # Still fall through to try the next provider rather than fail hard.
 
+    print("[api_router] All configured providers failed or are rate-limited.")
     return {
         "text": None,
         "model_used": None,
