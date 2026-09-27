@@ -177,25 +177,82 @@ All existing V1 API contracts are preserved 1:1 with standard REST endpoints:
   * PUT /api/admin/user/:id/flag  -> Controller: adminController.flagUser
 
 
-6. STEP-BY-STEP MIGRATION ORDER
+6. STEP-BY-STEP PARALLEL MIGRATION ORDER
 --------------------------------------------------------------------------------
-Phase 1: Environment & Express Scaffolding
-- Initialize `server/` directory, configure `package.json` dependencies (express, mongoose,
-  jsonwebtoken, bcryptjs, cors, dotenv, axios).
-- Implement database connection (`config/db.js`) pointing to MongoDB.
 
-Phase 2: Auth, Conversation & Settings Migration
-- Port JWT creation, password hashing, and user authentication to Express controllers.
-- Port conversation CRUD and title renaming to Mongoose models.
-- Port user settings endpoints.
+TRACK A — BACKEND TRACK (Express API Gateway & Python Microservice)
+- Phase A1: Express Project Scaffolding
+  * Initialize `server/` directory, configure `package.json` dependencies (express, mongoose,
+    jsonwebtoken, bcryptjs, cors, dotenv, axios).
+  * Implement database connection (`config/db.js`) pointing to MongoDB.
+- Phase A2: Auth, Conversation & Settings Controller Migration
+  * Port JWT creation, password hashing, and user authentication to Express controllers.
+  * Port conversation CRUD, title renaming, and settings endpoints to Mongoose models.
+- Phase A3: Python Microservice Decoupling
+  * Refactor Python backend into a dedicated internal microservice on port 8001.
+  * Restrict Python endpoints to `/internal/*` with header authentication (`X-Internal-Secret`).
+  * Wire Express `chatController` to forward guardrail inference to the Python microservice.
 
-Phase 3: Python Microservice Decoupling
-- Refactor Python backend into a dedicated internal microservice on port 8001.
-- Restrict Python endpoints to `/internal/*` with header authentication (`X-Internal-Secret`).
-- Wire Express `chatController` to call the Python internal service.
+TRACK B — FRONTEND TRACK (React Client Conversion)
+- Phase B1: React Application Scaffolding
+  * Initialize `client/` directory using Vite + React 18 (`npm create vite@latest client -- --template react`).
+  * Set up directory structure (`components/`, `pages/`, `context/`, `services/`, `hooks/`).
+  * Port design system styles, fonts, and dark theme tokens into modular CSS/Tailwind.
+- Phase B2: Centralized State Management & API Layer
+  * Implement `services/api.js` pointing to API base URL (compatible with both Python V1 and Express V2).
+  * Build `AuthContext` (login state, JWT token storage, user info).
+  * Build `ChatContext` (active conversation, message history, status badges).
+- Phase B3: Component Migration
+  * Migrate Chat Interface (`Sidebar`, `ChatArea`, `MessageItem`, `StatusBadge`, `PromptInput`).
+  * Migrate Modals (`LoginModal`, `SignupModal`, `RenameChatModal`, `LogoutModal`).
+  * Migrate Audit Dashboard (`AuditPage`, `StatsCards`, `AuditTable`, `LimeModal`).
+- Phase B4: Live Feature Testing Against Live API
+  * Validate chat stream, PII masking display, status badges, rename, and delete against live backend.
 
-Phase 4: Verification & Parity Testing
-- Verify end-to-end compatibility against existing frontend before switching React UI.
-- Validate DPDP compliance data integrity and rate-limit rotation mechanics.
+TRACK C — JOINT INTEGRATION & SYSTEM CUTOVER
+- Phase C1: Cross-Service Verification
+  * Point React `client/` to Express `server/` on port 5000.
+  * Verify all auth, chat, history, audit logs, and settings endpoints pass with 100% parity.
+- Phase C2: Production Build & Asset Optimization
+  * Build production bundle (`npm run build` in `client/`) and verify static serving / API proxying.
+
+
+7. FRONTEND COMPONENT HIERARCHY & STATE SPECIFICATION
+--------------------------------------------------------------------------------
+A. Component Tree:
+   App
+   ├── Navbar / Header (Brand, ThemeToggle, UserProfileDropdown / AuthButtons)
+   ├── AuthModals (LoginModal, SignupModal, LogoutConfirmModal)
+   ├── RenameChatModal (Triggered from Sidebar context menu)
+   └── Routes
+       ├── ChatPage
+       │   ├── Sidebar (NewChatBtn, SearchBar, ConversationList, UserFooter)
+       │   │   └── ConversationItem (Title, StatusBadge, ActionsMenu: Rename, Delete)
+       │   └── ChatArea
+       │       ├── WelcomeScreen (Greeting, QuickPromptChips)
+       │       ├── MessageList
+       │       │   └── MessageItem (SenderAvatar, MarkdownContent, StatusBadge, Time)
+       │       └── PromptInputBox (Textarea, SendButton, ModelBadge)
+       ├── AuditPage
+       │   ├── SummaryCards (TotalPrompts, SafeCount, ModifiedCount, BlockedCount)
+       │   ├── ThreatCharts (CategoryBreakdownPie, HourlyThreatsAreaChart)
+       │   ├── AuditLogsTable (Timestamp, User, MaskedPrompt, ThreatTier, Status, Actions)
+       │   └── LimeExplanationModal (Visual Feature Importance Breakdown)
+       └── SettingsPage
+           ├── ThemeSelector (Dark, Light, System)
+           ├── ProviderRotationOrder (Drag-and-drop or select preference)
+           └── DataManagement (ClearHistoryBtn with DPDP compliance notice)
+
+B. Core Frontend Rules & State Contracts:
+   - Status Vocabulary Mapping:
+     * Backend "Safe" -> UI Badge "Protected" (Green #10B981)
+     * Backend "PII Detected" -> UI Badge "Modified" (Yellow #F59E0B)
+     * Backend "Harmful" / "Prompt Injection" / "Jailbreak" / "Rate Limited" -> UI Badge "Blocked" (Red #EF4444)
+   - Guest vs Logged-In Data Handling:
+     * Non-logged-in (Guest) users: Conversations are stored locally in `localStorage` under `eclipse_guest_chats`.
+     * Logged-in users: Conversations are automatically synchronized with the backend (`GET /api/conversations`).
+   - Authentication Token Handling:
+     * Store JWT in `localStorage.getItem("token")` and attach header:
+       `Authorization: Bearer <token>` on all authenticated requests.
 
 ================================================================================
