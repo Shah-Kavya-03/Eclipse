@@ -1,0 +1,44 @@
+# Environment files (NEVER commit secrets)
+.env
+.env.local
+.env.*.local
+*.env
+backend/.env
+server/.env
+client/.env
+
+# Python
+venv/
+.venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyd
+.Python
+spacy_models/
+
+# Node.js & Javascript
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+server/node_modules/
+client/node_modules/
+package-lock.json
+
+# Build outputs
+client/dist/
+client/build/
+dist/
+build/
+
+# IDE & OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*.pdf
+scratch/
