@@ -65,6 +65,28 @@ app.get("/", (req, res) => {
   });
 });
 
+// Routes
+const authRoutes = require("./routes/authRoutes");
+const conversationRoutes = require("./routes/conversationRoutes");
+const settingRoutes = require("./routes/settingRoutes");
+const chatRoutes = require("./routes/chatRoutes");
+const logRoutes = require("./routes/logRoutes");
+
+app.use("/api/auth", authRoutes);
+app.use("/auth", authRoutes);
+
+app.use("/api/conversations", conversationRoutes);
+app.use("/conversations", conversationRoutes);
+
+app.use("/api/settings", settingRoutes);
+app.use("/settings", settingRoutes);
+
+app.use("/api/chat", chatRoutes);
+app.use("/chat", chatRoutes);
+
+app.use("/api", logRoutes);
+app.use("/", logRoutes); // Backwards compatibility for /logs, /dashboard-stats, /anomalies, /report/download
+
 // Centralized error handler
 app.use(errorHandler);
 
