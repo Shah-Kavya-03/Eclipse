@@ -98,37 +98,6 @@ export default function Sidebar({
             <nav className="nav-links">
                 <a
                     href="#"
-                    className={`tooltip ${currentPage === 'chat' ? 'active' : ''}`}
-                    data-tooltip="New Chat"
-                    onClick={(e) => {
-                        e.preventDefault();
-                        onNavigate('chat');
-                    }}
-                >
-                    <i className="fa-solid fa-comments"></i>
-                    <span style={{ userSelect: 'none' }} draggable="false">
-                        Chat
-                    </span>
-                </a>
-
-                <a
-                    href="#"
-                    className={`tooltip ${currentPage === 'audit' ? 'active' : ''}`}
-                    id="auditBtn"
-                    data-tooltip="Audit Logs"
-                    onClick={(e) => {
-                        e.preventDefault();
-                        onNavigate('audit');
-                    }}
-                >
-                    <i className="fa-solid fa-file-shield"></i>
-                    <span style={{ userSelect: 'none' }} draggable="false">
-                        Audit Logs
-                    </span>
-                </a>
-
-                <a
-                    href="#"
                     className="tooltip"
                     id="searchBtn"
                     data-tooltip="Search Chats"

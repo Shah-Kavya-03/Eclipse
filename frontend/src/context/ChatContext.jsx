@@ -26,6 +26,9 @@ export function ChatProvider({ children }) {
     const { showToast } = useToast();
 
     const [conversations, setConversations] = useState(() => {
+        if (!currentUser?.user_id) {
+            return [];
+        }
         const stored = localStorage.getItem('guardrailChats');
         if (stored) {
             try {
@@ -40,10 +43,12 @@ export function ChatProvider({ children }) {
     const [currentConversationId, setCurrentConversationId] = useState(null);
     const [isTyping, setIsTyping] = useState(false);
 
-    // Save conversations to localStorage whenever they change
+    // Save conversations to localStorage whenever they change (signed-in users only)
     useEffect(() => {
-        localStorage.setItem('guardrailChats', JSON.stringify(conversations));
-    }, [conversations]);
+        if (currentUser?.user_id) {
+            localStorage.setItem('guardrailChats', JSON.stringify(conversations));
+        }
+    }, [conversations, currentUser]);
 
     // Refresh conversations from backend for logged in users
     const refreshConversationsFromBackend = useCallback(async () => {
@@ -88,17 +93,8 @@ export function ChatProvider({ children }) {
         if (currentUser?.user_id) {
             refreshConversationsFromBackend();
         } else {
-            // Guest mode: load from localStorage
-            const stored = localStorage.getItem('guardrailChats');
-            if (stored) {
-                try {
-                    setConversations(JSON.parse(stored));
-                } catch {
-                    setConversations([]);
-                }
-            } else {
-                setConversations([]);
-            }
+            // Guest mode: start fresh
+            setConversations([]);
             setCurrentConversationId(null);
         }
     }, [currentUser, refreshConversationsFromBackend]);
@@ -192,6 +188,14 @@ export function ChatProvider({ children }) {
                       data.lime_explanation ||
                       'Your message could not be processed.';
 
+                const aiMessage = {
+                    sender: 'ai',
+                    text: replyText,
+                    status: displayStatus,
+                    blocked_reason: data.blocked_reason || null,
+                    lime_explanation: data.lime_explanation || null
+                };
+
                 setConversations((prev) =>
                     prev.map((c) => {
                         if (String(c.id) === String(targetId)) {
@@ -200,7 +204,7 @@ export function ChatProvider({ children }) {
                                 status: displayStatus,
                                 model: data.model_used || c.model,
                                 lastLimeExplanation: data.lime_explanation,
-                                messages: [...c.messages, { sender: 'ai', text: replyText }]
+                                messages: [...c.messages, aiMessage]
                             };
                         }
                         return c;
