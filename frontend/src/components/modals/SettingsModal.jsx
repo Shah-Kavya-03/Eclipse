@@ -1,5 +1,232 @@
 import React, { useState, useEffect } from 'react';
+import { API_BASE } from '../../api/config';
+import { useToast } from '../../context/ToastContext';
 
+// -------------------------------------------------------
+// Theme helpers
+// -------------------------------------------------------
+function applyTheme(theme) {
+    const root = document.documentElement;
+    if (theme === 'light') {
+        root.setAttribute('data-theme', 'light');
+    } else if (theme === 'dark') {
+        root.removeAttribute('data-theme');
+    } else {
+        // system
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        if (prefersDark) {
+            root.removeAttribute('data-theme');
+        } else {
+            root.setAttribute('data-theme', 'light');
+        }
+    }
+}
+
+// -------------------------------------------------------
+// Theme Tab
+// -------------------------------------------------------
+function ThemeTab() {
+    const [theme, setTheme] = useState(() => localStorage.getItem('eclipseTheme') || 'dark');
+
+    const handleChange = (val) => {
+        setTheme(val);
+        localStorage.setItem('eclipseTheme', val);
+        applyTheme(val);
+    };
+
+    return (
+        <div className="settings-section">
+            <i className="fa-solid fa-moon settings-section-icon"></i>
+            <h2>Theme</h2>
+            <p className="settings-desc">Choose your preferred colour scheme.</p>
+
+            <div className="theme-options">
+                {[
+                    { value: 'dark',   label: 'Dark',   icon: 'fa-moon'   },
+                    { value: 'light',  label: 'Light',  icon: 'fa-sun'    },
+                    { value: 'system', label: 'System', icon: 'fa-desktop' },
+                ].map(({ value, label, icon }) => (
+                    <button
+                        key={value}
+                        className={`theme-option ${theme === value ? 'active' : ''}`}
+                        onClick={() => handleChange(value)}
+                    >
+                        <i className={`fa-solid ${icon}`}></i>
+                        <span>{label}</span>
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+// -------------------------------------------------------
+// AI Provider Tab
+// -------------------------------------------------------
+function AIModelTab() {
+    const { showToast } = useToast();
+    const [settings, setSettings] = useState({ model: '', provider: '' });
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+
+    useEffect(() => {
+        (async () => {
+            try {
+                const res = await fetch(`${API_BASE}/settings`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setSettings({
+                        model: data.model || '',
+                        provider: data.provider || ''
+                    });
+                }
+            } catch (err) {
+                console.warn('Could not load settings:', err);
+            } finally {
+                setLoading(false);
+            }
+        })();
+    }, []);
+
+    const handleSave = async () => {
+        setSaving(true);
+        try {
+            const res = await fetch(`${API_BASE}/settings`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(settings)
+            });
+            if (res.ok) {
+                showToast('Settings saved.', 'success');
+            } else {
+                showToast('Failed to save settings.', 'error');
+            }
+        } catch (err) {
+            showToast('Could not reach the server.', 'error');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    if (loading) {
+        return (
+            <div className="settings-placeholder">
+                <i className="fa-solid fa-robot"></i>
+                <h2>AI Model</h2>
+                <p>Loading…</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="settings-section">
+            <i className="fa-solid fa-robot settings-section-icon"></i>
+            <h2>AI Model</h2>
+            <p className="settings-desc">Configure the AI provider and model used by the guardrail.</p>
+
+            <div className="settings-form">
+                <label className="settings-label">Provider</label>
+                <input
+                    className="settings-input"
+                    type="text"
+                    placeholder="e.g. google, openai"
+                    value={settings.provider}
+                    onChange={(e) => setSettings((s) => ({ ...s, provider: e.target.value }))}
+                />
+
+                <label className="settings-label">Model</label>
+                <input
+                    className="settings-input"
+                    type="text"
+                    placeholder="e.g. gemini-2.5-flash"
+                    value={settings.model}
+                    onChange={(e) => setSettings((s) => ({ ...s, model: e.target.value }))}
+                />
+
+                <button
+                    className="settings-save-btn"
+                    onClick={handleSave}
+                    disabled={saving}
+                >
+                    {saving ? 'Saving…' : 'Save Changes'}
+                </button>
+            </div>
+        </div>
+    );
+}
+
+// -------------------------------------------------------
+// Clear History Tab
+// -------------------------------------------------------
+function ClearHistoryTab() {
+    const { showToast } = useToast();
+    const [confirming, setConfirming] = useState(false);
+    const [clearing, setClearing] = useState(false);
+
+    const handleClear = async () => {
+        setClearing(true);
+        try {
+            const res = await fetch(`${API_BASE}/settings/clear-history`, { method: 'POST' });
+            if (res.ok) {
+                showToast('Chat history cleared.', 'success');
+            } else {
+                showToast('Failed to clear history.', 'error');
+            }
+        } catch (err) {
+            showToast('Could not reach the server.', 'error');
+        } finally {
+            setClearing(false);
+            setConfirming(false);
+        }
+    };
+
+    return (
+        <div className="settings-section">
+            <i className="fa-solid fa-trash settings-section-icon"></i>
+            <h2>Clear Chat History</h2>
+            <p className="settings-desc">
+                Permanently delete all your chat history from the server. This action cannot be undone.
+            </p>
+
+            {!confirming ? (
+                <button
+                    className="settings-danger-btn"
+                    onClick={() => setConfirming(true)}
+                >
+                    <i className="fa-solid fa-trash"></i>
+                    Clear All History
+                </button>
+            ) : (
+                <div className="confirm-panel">
+                    <p className="confirm-text">
+                        <i className="fa-solid fa-triangle-exclamation"></i>
+                        Are you sure? This will permanently delete all saved conversations.
+                    </p>
+                    <div className="confirm-actions">
+                        <button
+                            className="rename-cancel"
+                            onClick={() => setConfirming(false)}
+                            disabled={clearing}
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            className="settings-danger-btn"
+                            onClick={handleClear}
+                            disabled={clearing}
+                        >
+                            {clearing ? 'Clearing…' : 'Yes, Clear Everything'}
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+// -------------------------------------------------------
+// Main SettingsModal
+// -------------------------------------------------------
 export default function SettingsModal({ isOpen, onClose }) {
     const [activeTab, setActiveTab] = useState('model');
 
@@ -24,13 +251,7 @@ export default function SettingsModal({ isOpen, onClose }) {
     const renderContent = () => {
         switch (activeTab) {
             case 'model':
-                return (
-                    <div className="settings-placeholder">
-                        <i className="fa-solid fa-robot"></i>
-                        <h2>AI Model</h2>
-                        <p>This section is under development.</p>
-                    </div>
-                );
+                return <AIModelTab />;
             case 'version':
                 return (
                     <div className="settings-placeholder">
@@ -40,13 +261,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                     </div>
                 );
             case 'history':
-                return (
-                    <div className="settings-placeholder">
-                        <i className="fa-solid fa-trash"></i>
-                        <h2>Clear Chat History</h2>
-                        <p>This section is under development.</p>
-                    </div>
-                );
+                return <ClearHistoryTab />;
             case 'highlight':
                 return (
                     <div className="settings-placeholder">
@@ -56,13 +271,7 @@ export default function SettingsModal({ isOpen, onClose }) {
                     </div>
                 );
             case 'theme':
-                return (
-                    <div className="settings-placeholder">
-                        <i className="fa-solid fa-moon"></i>
-                        <h2>Theme</h2>
-                        <p>This section is under development.</p>
-                    </div>
-                );
+                return <ThemeTab />;
             case 'accent':
                 return (
                     <div className="settings-placeholder">
