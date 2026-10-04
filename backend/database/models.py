@@ -32,6 +32,7 @@ def new_audit_log(
     threat_tier: int,
     lime_explanation: Optional[str],
     user_id: str,
+    entities_detected: Optional[list] = None,
 ) -> dict:
     """Shape of a document in the `audit_logs` collection."""
     return {
@@ -44,6 +45,7 @@ def new_audit_log(
         "status": status,                 # Safe | Blocked | PII Detected | Harmful | Jailbreak
         "threat_tier": threat_tier,       # 1-5
         "lime_explanation": lime_explanation,
+        "entities_detected": entities_detected or [], # Record of detected PII types/placeholders
         "timestamp": now_utc(),
         "user_id": user_id,
     }

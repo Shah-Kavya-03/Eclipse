@@ -18,12 +18,13 @@ const apiClient = axios.create({
 /**
  * Call internal Python guardrail pipeline.
  */
-const processChat = async ({ prompt, session_id, user_id, history }) => {
+const processChat = async ({ prompt, session_id, user_id, provider, history }) => {
   try {
     const response = await apiClient.post("/internal/process-chat", {
       prompt,
       session_id,
       user_id: user_id || "guest",
+      provider: provider || null,
       history: history || [],
     });
     return response.data;

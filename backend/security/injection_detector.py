@@ -27,15 +27,15 @@ _MODE = os.getenv("INJECTION_DETECTOR_MODE", "rules").lower()
 # "injection"  -> attempts to override/ignore system instructions
 # "jailbreak"  -> attempts to bypass safety guidelines entirely
 _PATTERNS: list[tuple[re.Pattern, str]] = [
-    (re.compile(r"\bignore (all|any|the) (previous|prior|above) instructions\b", re.I), "injection"),
-    (re.compile(r"\bdisregard (all|any|the) (previous|prior|above)\b", re.I), "injection"),
+    (re.compile(r"\bignore\s+(all|any|the)?\s*(previous|prior|above)\s+(instructions|prompts|rules|commands)\b", re.I), "injection"),
+    (re.compile(r"\bdisregard\s+(all|any|the)?\s*(previous|prior|above)\s+(instructions|prompts|rules|commands)\b", re.I), "injection"),
     (re.compile(r"\byou are now\b.{0,40}\b(dan|jailbroken|unrestricted|uncensored)\b", re.I), "jailbreak"),
-    (re.compile(r"\bpretend (you are|to be)\b.{0,40}\bno (rules|restrictions|filters)\b", re.I), "jailbreak"),
-    (re.compile(r"\bact as (if )?(dan|an? unrestricted|an? uncensored)\b", re.I), "jailbreak"),
-    (re.compile(r"\bsystem prompt\b.{0,30}\b(reveal|show|print|output|leak)\b", re.I), "injection"),
+    (re.compile(r"\bpretend\s+(you are|to be)\b.{0,40}\bno\s+(rules|restrictions|filters|guidelines)\b", re.I), "jailbreak"),
+    (re.compile(r"\bact as\s+(if\s+)?(dan|an?\s+unrestricted|an?\s+uncensored)\b", re.I), "jailbreak"),
+    (re.compile(r"\bsystem prompt\b.{0,30}\b(reveal|show|print|output|leak|tell me)\b", re.I), "injection"),
     (re.compile(r"\b(reveal|show|print|output|leak)\b.{0,30}\bsystem prompt\b", re.I), "injection"),
-    (re.compile(r"\bdeveloper mode\b", re.I), "jailbreak"),
-    (re.compile(r"\bbypass (your |the )?(safety|content|ethical) (guidelines|filters|policy)\b", re.I), "jailbreak"),
+    (re.compile(r"\b(enable|enter|turn on|switch to|activate|start)\s+(chatgpt\s+)?developer\s+mode\b", re.I), "jailbreak"),
+    (re.compile(r"\bbypass\s+(your\s+|the\s+)?(safety|content|ethical)\s+(guidelines|filters|policy|rules)\b", re.I), "jailbreak"),
     (re.compile(r"\bnew instructions\s*:", re.I), "injection"),
     (re.compile(r"\[\[?\s*system\s*\]?\]", re.I), "injection"),
 ]

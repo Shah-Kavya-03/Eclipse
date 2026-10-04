@@ -29,14 +29,18 @@ FRIENDLY_CAPACITY_MESSAGE = (
 )
 
 
-def _get_rotation_order() -> list[tuple[str, callable]]:
+def _get_rotation_order(preferred_provider: str = None) -> list[tuple[str, callable]]:
     """
-    Build the ordered provider list from API_ROTATION_ORDER each call
-    (not cached at import time) so changing .env and restarting the
-    server is enough to reorder — no code change needed.
+    Build the ordered provider list from API_ROTATION_ORDER or user preference.
+    If preferred_provider is supplied, place it first in the list.
     """
     order_str = os.getenv("API_ROTATION_ORDER", "gemini,groq,cerebras,nvidia,mistral")
     keys = [k.strip().lower() for k in order_str.split(",") if k.strip()]
+
+    if preferred_provider:
+        pref = preferred_provider.strip().lower()
+        if pref in _CLIENTS:
+            keys = [pref] + [k for k in keys if k != pref]
 
     providers = []
     for key in keys:
@@ -98,10 +102,10 @@ async def _record_usage(api_name: str, success: bool, rate_limited: bool = False
     )
 
 
-async def get_completion(messages: list[dict]) -> dict:
+async def get_completion(messages: list[dict], preferred_provider: str = None) -> dict:
     """
     Send `messages` through the provider rotation (order from
-    API_ROTATION_ORDER), skipping any provider still in its rate-limit
+    API_ROTATION_ORDER or user selection), skipping any provider still in its rate-limit
     cooldown, trying each remaining one in order until one succeeds.
 
     Returns:
@@ -112,7 +116,7 @@ async def get_completion(messages: list[dict]) -> dict:
             "all_rate_limited": bool,
         }
     """
-    providers = _get_rotation_order()
+    providers = _get_rotation_order(preferred_provider)
 
     for provider_name, send_fn in providers:
         if await _is_still_rate_limited(provider_name):
