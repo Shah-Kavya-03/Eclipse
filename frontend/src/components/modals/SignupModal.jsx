@@ -97,13 +97,13 @@ export default function SignupModal({ isOpen, onClose, onBackToLogin }) {
                             type="button"
                             className="toggle-password"
                             aria-label={showPassword ? 'Hide password' : 'Show password'}
-                            onClick={() => setShowPassword(!showPassword)}
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => setShowPassword((prev) => !prev)}
                         >
                             <i
-                                className={`fa-solid ${
-                                    showPassword ? 'fa-eye-slash' : 'fa-eye'
-                                }`}
-                            ></i>
+                                className={`fa-solid ${showPassword ? 'fa-eye-slash' : 'fa-eye'
+                                    }`}
+                            />
                         </button>
                     </div>
 
@@ -120,15 +120,19 @@ export default function SignupModal({ isOpen, onClose, onBackToLogin }) {
                             type="button"
                             className="toggle-password"
                             aria-label={
-                                showConfirmPassword ? 'Hide password' : 'Show password'
+                                showConfirmPassword
+                                    ? 'Hide password'
+                                    : 'Show password'
                             }
-                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => setShowConfirmPassword((prev) => !prev)}
                         >
                             <i
-                                className={`fa-solid ${
-                                    showConfirmPassword ? 'fa-eye-slash' : 'fa-eye'
-                                }`}
-                            ></i>
+                                className={`fa-solid ${showConfirmPassword
+                                        ? 'fa-eye-slash'
+                                        : 'fa-eye'
+                                    }`}
+                            />
                         </button>
                     </div>
 

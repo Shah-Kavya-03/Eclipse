@@ -4,11 +4,18 @@ export const API_BASE = "http://localhost:5000";
  * Maps a backend threat_tier status to the frontend's existing
  * three-state display model: "Protected" (safe), "Blocked"
  * (injection/harmful/jailbreak), "Modified" (PII was masked).
+ *
+ * Bug 3 fix: normalize case + whitespace so unknown/empty statuses
+ * do NOT fall through to "Blocked". Unknown → "Protected" (safe default).
  */
 export function mapBackendStatus(status) {
-    if (status === "PII Detected") return "Modified";
-    if (status === "Safe") return "Protected";
-    return "Blocked";
+    const normalized = String(status || '').trim().toLowerCase();
+    if (normalized === 'pii detected' || normalized === 'modified') return 'Modified';
+    if (normalized === 'safe' || normalized === 'protected' || normalized === 'passed' || normalized === 'allowed') return 'Protected';
+    if (normalized === 'blocked' || normalized === 'unsafe' || normalized === 'injection' || normalized === 'jailbreak' || normalized === 'harmful') return 'Blocked';
+    // Unknown / missing status → treat as Protected (safe), never auto-Blocked
+    if (!normalized) return 'Protected';
+    return 'Blocked';
 }
 
 export async function apiLogin(email, password) {

@@ -22,34 +22,42 @@ function sortConversationsList(list) {
 }
 
 export function ChatProvider({ children }) {
-    const { currentUser } = useAuth();
+    const { currentUser, registerLogoutCallback } = useAuth();
     const { showToast } = useToast();
 
-    const [conversations, setConversations] = useState(() => {
-        const stored = localStorage.getItem('guardrailChats');
-        if (stored) {
-            try {
-                return JSON.parse(stored);
-            } catch {
-                return [];
-            }
-        }
-        return [];
-    });
-
+    // Bug 2: Never load from localStorage on initial render — always start empty.
+    // Conversations are fetched from the backend once auth is confirmed.
+    const [conversations, setConversations] = useState([]);
     const [currentConversationId, setCurrentConversationId] = useState(null);
     const [isTyping, setIsTyping] = useState(false);
 
-    // Save conversations to localStorage whenever they change
-    useEffect(() => {
-        localStorage.setItem('guardrailChats', JSON.stringify(conversations));
-    }, [conversations]);
+    // Bug 2: Function to clear all conversation state immediately
+    const clearConversationState = useCallback(() => {
+        setConversations([]);
+        setCurrentConversationId(null);
+        setIsTyping(false);
+        // Also clear any cached localStorage conversations
+        localStorage.removeItem('guardrailChats');
+    }, []);
 
-    // Refresh conversations from backend for logged in users
+    // Bug 2: Register the clear-state callback with AuthContext so logout clears conversations
+    useEffect(() => {
+        if (registerLogoutCallback) {
+            registerLogoutCallback(clearConversationState);
+        }
+    }, [registerLogoutCallback, clearConversationState]);
+
+    // Refresh conversations from backend for logged-in users
     const refreshConversationsFromBackend = useCallback(async () => {
         if (!currentUser?.user_id) return;
         try {
             const data = await apiGetConversations(currentUser.user_id);
+            // Bug 2: only populate conversations when we have valid data
+            if (!data || !Array.isArray(data.conversations)) {
+                // API error — do NOT show as Blocked, just leave empty
+                console.warn('Unexpected conversations response:', data);
+                return;
+            }
             const fetched = (data.conversations || []).map((conv) => ({
                 id: conv.session_id,
                 title: conv.title || 'New Chat',
@@ -79,26 +87,19 @@ export function ChatProvider({ children }) {
                 return sortConversationsList(merged);
             });
         } catch (err) {
+            // Bug 2: API error is NOT a guardrail block — do not show as Blocked
             console.error('Failed to load conversations from backend:', err);
         }
     }, [currentUser]);
 
-    // When auth changes
+    // Bug 2: When auth changes — clear state first, then fetch if logged in
     useEffect(() => {
         if (currentUser?.user_id) {
+            // Fetch conversations for the newly authenticated user
             refreshConversationsFromBackend();
         } else {
-            // Guest mode: load from localStorage
-            const stored = localStorage.getItem('guardrailChats');
-            if (stored) {
-                try {
-                    setConversations(JSON.parse(stored));
-                } catch {
-                    setConversations([]);
-                }
-            } else {
-                setConversations([]);
-            }
+            // Guest mode: ensure clean state — no conversations visible
+            setConversations([]);
             setCurrentConversationId(null);
         }
     }, [currentUser, refreshConversationsFromBackend]);
@@ -192,6 +193,21 @@ export function ChatProvider({ children }) {
                       data.lime_explanation ||
                       'Your message could not be processed.';
 
+                // Bug 13: preserve all redaction/audit fields from backend response
+                const aiMessage = {
+                    sender: 'ai',
+                    text: replyText,
+                    status: displayStatus,
+                    blocked_reason: data.blocked_reason || null,
+                    lime_explanation: data.lime_explanation || null,
+                    // Preserve any redaction metadata the backend provides
+                    redactions: data.redactions || data.redacted_fields || null,
+                    processed_prompt: data.processed_prompt || null,
+                    processed_response: data.processed_response || null,
+                    suspicious_content: data.suspicious_content || data.flagged_content || null,
+                    threat_category: data.threat_category || data.category || null,
+                };
+
                 setConversations((prev) =>
                     prev.map((c) => {
                         if (String(c.id) === String(targetId)) {
@@ -200,13 +216,14 @@ export function ChatProvider({ children }) {
                                 status: displayStatus,
                                 model: data.model_used || c.model,
                                 lastLimeExplanation: data.lime_explanation,
-                                messages: [...c.messages, { sender: 'ai', text: replyText }]
+                                messages: [...c.messages, aiMessage]
                             };
                         }
                         return c;
                     })
                 );
             } catch (err) {
+                // Bug 3: network/API error must NOT be classified as Blocked
                 console.error('Chat request failed:', err);
                 const errorText = 'Could not reach the guardrail backend. Is the server running?';
                 setConversations((prev) =>
@@ -214,7 +231,7 @@ export function ChatProvider({ children }) {
                         if (String(c.id) === String(targetId)) {
                             return {
                                 ...c,
-                                messages: [...c.messages, { sender: 'ai', text: errorText }]
+                                messages: [...c.messages, { sender: 'ai', text: errorText, status: null }]
                             };
                         }
                         return c;
@@ -287,6 +304,28 @@ export function ChatProvider({ children }) {
         [currentConversationId, showToast]
     );
 
+    /**
+     * Bug 4: Clear history — clears frontend state immediately after successful API call.
+     * Does NOT modify backend behavior; only resets frontend state on success.
+     */
+    const clearAllHistory = useCallback(
+        async (apiClearFn) => {
+            try {
+                const success = await apiClearFn();
+                if (success) {
+                    setConversations([]);
+                    setCurrentConversationId(null);
+                    localStorage.removeItem('guardrailChats');
+                }
+                return success;
+            } catch (err) {
+                console.error('clearAllHistory error:', err);
+                return false;
+            }
+        },
+        []
+    );
+
     return (
         <ChatContext.Provider
             value={{
@@ -300,6 +339,7 @@ export function ChatProvider({ children }) {
                 renameConversation,
                 togglePinConversation,
                 deleteConversation,
+                clearAllHistory,
                 refreshConversationsFromBackend
             }}
         >

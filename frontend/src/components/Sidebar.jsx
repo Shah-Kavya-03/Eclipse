@@ -59,15 +59,20 @@ export default function Sidebar({
     return (
         <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`} id="sidebar">
             <div className="sidebar-top">
-                <button
-                    id="toggleSidebar"
-                    className="icon-btn"
-                    onClick={onToggleCollapse}
-                    title="Toggle sidebar"
-                >
-                    <i className="fa-solid fa-bars"></i>
-                </button>
+                <div className="sidebar-toggle-wrapper">
+                    <button
+                        id="toggleSidebar"
+                        className="icon-btn tooltip"
 
+                        onClick={onToggleCollapse}
+                        aria-label="Toggle Sidebar"
+                    >
+                        <i className="fa-solid fa-bars"></i>
+                    </button>
+                    <span className="sidebar-toggle-tooltip">
+                        Toggle Sidebar
+                    </span>
+                </div>
                 <div className="logo">
                     <div className="logo-icon">
                         <i className="fa-solid fa-shield-halved"></i>
@@ -96,37 +101,6 @@ export default function Sidebar({
 
             {/* NAVIGATION */}
             <nav className="nav-links">
-                <a
-                    href="#"
-                    className={`tooltip ${currentPage === 'chat' ? 'active' : ''}`}
-                    data-tooltip="New Chat"
-                    onClick={(e) => {
-                        e.preventDefault();
-                        onNavigate('chat');
-                    }}
-                >
-                    <i className="fa-solid fa-comments"></i>
-                    <span style={{ userSelect: 'none' }} draggable="false">
-                        Chat
-                    </span>
-                </a>
-
-                <a
-                    href="#"
-                    className={`tooltip ${currentPage === 'audit' ? 'active' : ''}`}
-                    id="auditBtn"
-                    data-tooltip="Audit Logs"
-                    onClick={(e) => {
-                        e.preventDefault();
-                        onNavigate('audit');
-                    }}
-                >
-                    <i className="fa-solid fa-file-shield"></i>
-                    <span style={{ userSelect: 'none' }} draggable="false">
-                        Audit Logs
-                    </span>
-                </a>
-
                 <a
                     href="#"
                     className="tooltip"
@@ -166,12 +140,11 @@ export default function Sidebar({
                         conversations.map((chat) => (
                             <div
                                 key={chat.id}
-                                className={`chat-item ${chat.pinned ? 'pinned' : ''} ${
-                                    String(currentConversationId) === String(chat.id) &&
+                                className={`chat-item ${chat.pinned ? 'pinned' : ''} ${String(currentConversationId) === String(chat.id) &&
                                     currentPage === 'chat'
-                                        ? 'active'
-                                        : ''
-                                }`}
+                                    ? 'active'
+                                    : ''
+                                    }`}
                             >
                                 <span
                                     className="chat-title"
@@ -193,9 +166,8 @@ export default function Sidebar({
                                 </button>
 
                                 <div
-                                    className={`chat-menu ${
-                                        activeMenuId === chat.id ? 'active' : ''
-                                    }`}
+                                    className={`chat-menu ${activeMenuId === chat.id ? 'active' : ''
+                                        }`}
                                 >
                                     <button
                                         className="rename-chat"
