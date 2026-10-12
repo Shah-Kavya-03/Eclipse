@@ -60,13 +60,23 @@ const signup = async (req, res) => {
     });
 
     const token = generateToken(user._id);
+    const userIdStr = user._id.toString();
 
     return res.status(201).json({
       access_token: token,
+      token: token,
       token_type: "bearer",
+      user_id: userIdStr,
+      id: userIdStr,
+      name: user.name,
+      username: user.name,
+      email: user.email,
+      is_admin: user.is_admin,
       user: {
-        user_id: user._id.toString(),
+        user_id: userIdStr,
+        id: userIdStr,
         name: user.name,
+        username: user.name,
         email: user.email,
         is_admin: user.is_admin,
       },
@@ -122,13 +132,23 @@ const login = async (req, res) => {
     }
 
     const token = generateToken(user._id);
+    const userIdStr = user._id.toString();
 
     return res.json({
       access_token: token,
+      token: token,
       token_type: "bearer",
+      user_id: userIdStr,
+      id: userIdStr,
+      name: user.name,
+      username: user.name,
+      email: user.email,
+      is_admin: user.is_admin,
       user: {
-        user_id: user._id.toString(),
+        user_id: userIdStr,
+        id: userIdStr,
         name: user.name,
+        username: user.name,
         email: user.email,
         is_admin: user.is_admin,
       },

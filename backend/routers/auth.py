@@ -28,11 +28,28 @@ class LoginRequest(BaseModel):
 
 
 def _user_response(user_doc: dict, token: str) -> dict:
+    user_id_str = str(user_doc["_id"])
+    name_str = user_doc.get("name", "")
+    email_str = user_doc.get("email", "")
+    is_admin_bool = user_doc.get("is_admin", False)
     return {
-        "user_id": str(user_doc["_id"]),
-        "name": user_doc["name"],
-        "email": user_doc["email"],
+        "access_token": token,
         "token": token,
+        "token_type": "bearer",
+        "user_id": user_id_str,
+        "id": user_id_str,
+        "name": name_str,
+        "username": name_str,
+        "email": email_str,
+        "is_admin": is_admin_bool,
+        "user": {
+            "user_id": user_id_str,
+            "id": user_id_str,
+            "name": name_str,
+            "username": name_str,
+            "email": email_str,
+            "is_admin": is_admin_bool,
+        },
     }
 
 

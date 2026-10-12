@@ -8,7 +8,7 @@ const pythonMlClient = require("../services/pythonMlClient");
  */
 const handleChat = async (req, res) => {
   try {
-    const { prompt, session_id, user_id } = req.body;
+    const { prompt, session_id, user_id, provider } = req.body;
 
     if (!prompt || !session_id) {
       return res.status(400).json({
@@ -28,7 +28,7 @@ const handleChat = async (req, res) => {
         user_id: userId,
         messages: [],
         status: "Protected",
-        model_used: "Gemini",
+        model_used: provider ? provider.toUpperCase() : "Gemini",
       });
     }
 
@@ -45,6 +45,7 @@ const handleChat = async (req, res) => {
       prompt,
       session_id,
       user_id: userId,
+      provider,
       history: historyMessages,
     });
 
@@ -99,6 +100,7 @@ const handleChat = async (req, res) => {
       model_used: mlResult.model_used,
       api_used: mlResult.api_used,
       threat_tier: mlResult.threat_tier,
+      entities_detected: mlResult.entities_detected || [],
     });
   } catch (error) {
     console.error("[Chat Controller Error]:", error);

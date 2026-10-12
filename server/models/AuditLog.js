@@ -47,6 +47,10 @@ const auditLogSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    entities_detected: {
+      type: Array,
+      default: [],
+    },
     timestamp: {
       type: Date,
       default: Date.now,

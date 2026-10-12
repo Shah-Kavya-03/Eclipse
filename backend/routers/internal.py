@@ -53,6 +53,7 @@ class ProcessChatRequest(BaseModel):
     prompt: str
     session_id: str
     user_id: str = "guest"
+    provider: Optional[str] = None
     history: Optional[List[HistoryMessage]] = None
 
 
@@ -63,6 +64,8 @@ async def process_chat(req: ProcessChatRequest):
     # ---- 1. Classify incoming prompt ----
     input_classification = classify(req.prompt)
     masked_prompt = input_classification["masked_text"]
+
+    input_entities = input_classification.get("pii", {}).get("entities_detected", [])
 
     # Blocked prompts never reach LLMs
     if input_classification["blocked"]:
@@ -80,6 +83,7 @@ async def process_chat(req: ProcessChatRequest):
                 threat_tier=input_classification["threat_tier"],
                 lime_explanation=lime_explanation,
                 user_id=req.user_id,
+                entities_detected=input_entities,
             )
         )
 
@@ -103,6 +107,7 @@ async def process_chat(req: ProcessChatRequest):
             "api_used": None,
             "threat_tier": input_classification["threat_tier"],
             "blocked": True,
+            "entities_detected": input_entities,
         }
 
     # ---- 2. Build conversation context ----
@@ -112,8 +117,8 @@ async def process_chat(req: ProcessChatRequest):
             llm_messages.append({"role": msg.role, "content": msg.content})
     llm_messages.append({"role": "user", "content": masked_prompt})
 
-    # ---- 3. Call LLM rotation ----
-    completion = await get_completion(llm_messages)
+    # ---- 3. Call LLM rotation with optional provider preference ----
+    completion = await get_completion(llm_messages, preferred_provider=req.provider)
 
     if completion["all_rate_limited"]:
         await db.audit_logs.insert_one(
@@ -128,6 +133,7 @@ async def process_chat(req: ProcessChatRequest):
                 threat_tier=input_classification["threat_tier"],
                 lime_explanation=FRIENDLY_CAPACITY_MESSAGE,
                 user_id=req.user_id,
+                entities_detected=input_entities,
             )
         )
         return {
@@ -140,11 +146,14 @@ async def process_chat(req: ProcessChatRequest):
             "api_used": None,
             "threat_tier": input_classification["threat_tier"],
             "blocked": True,
+            "entities_detected": input_entities,
         }
 
     # ---- 4. Classify LLM response ----
     output_classification = classify(completion["text"])
     final_response = output_classification["masked_text"]
+    output_entities = output_classification.get("pii", {}).get("entities_detected", [])
+    all_entities = input_entities + output_entities
 
     # ---- 5. Record audit log ----
     await db.audit_logs.insert_one(
@@ -159,6 +168,7 @@ async def process_chat(req: ProcessChatRequest):
             threat_tier=input_classification["threat_tier"],
             lime_explanation=None,
             user_id=req.user_id,
+            entities_detected=all_entities,
         )
     )
 
@@ -172,6 +182,7 @@ async def process_chat(req: ProcessChatRequest):
         "api_used": completion["api_used"],
         "threat_tier": input_classification["threat_tier"],
         "blocked": False,
+        "entities_detected": all_entities,
     }
 
 

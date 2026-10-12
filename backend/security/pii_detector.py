@@ -31,15 +31,30 @@ PII_ENTITIES = [
 ]
 
 
+ENTITY_LABELS = {
+    "PERSON": "<PERSON_NAME>",
+    "EMAIL_ADDRESS": "<EMAIL_ADDRESS>",
+    "PHONE_NUMBER": "<PHONE_NUMBER>",
+    "CREDIT_CARD": "<CREDIT_CARD>",
+    "US_SSN": "<SSN_NUMBER>",
+    "IN_AADHAAR": "<AADHAAR_NUMBER>",
+    "IN_PAN": "<PAN_CARD_NUMBER>",
+    "LOCATION": "<LOCATION>",
+    "IP_ADDRESS": "<IP_ADDRESS>",
+    "DATE_TIME": "<DATE_TIME>",
+}
+
+
 def mask_pii(text: str) -> dict:
     """
-    Detect and mask PII in `text`.
+    Detect and mask PII in `text` with descriptive, understandable placeholders.
 
     Returns:
         {
             "masked_text": str,          # safe to store/log
             "pii_found": bool,
-            "entities_found": [str, ...] # entity types detected, e.g. ["EMAIL_ADDRESS"]
+            "entities_found": [str, ...], # list of entity type strings, e.g. ["EMAIL_ADDRESS"]
+            "entities_detected": [...]    # metadata for DB auditing
         }
     """
     results = _analyzer.analyze(
@@ -53,22 +68,35 @@ def mask_pii(text: str) -> dict:
             "masked_text": text,
             "pii_found": False,
             "entities_found": [],
+            "entities_detected": [],
         }
+
+    # Build operator dictionary with descriptive placeholders for each entity type
+    operators = {
+        entity_type: OperatorConfig("replace", {"new_value": label})
+        for entity_type, label in ENTITY_LABELS.items()
+    }
+    operators["DEFAULT"] = OperatorConfig("replace", {"new_value": "<REDACTED_PII>"})
 
     anonymized = _anonymizer.anonymize(
         text=text,
         analyzer_results=results,
-        operators={
-            "DEFAULT": OperatorConfig(
-                "replace", {"new_value": "[REDACTED]"}
-            )
-        },
+        operators=operators,
     )
 
     entities_found = sorted({r.entity_type for r in results})
+    entities_detected = [
+        {
+            "entity_type": r.entity_type,
+            "placeholder": ENTITY_LABELS.get(r.entity_type, f"<{r.entity_type}>"),
+            "confidence": round(r.score, 3),
+        }
+        for r in results
+    ]
 
     return {
         "masked_text": anonymized.text,
         "pii_found": True,
         "entities_found": entities_found,
+        "entities_detected": entities_detected,
     }

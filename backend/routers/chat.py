@@ -10,6 +10,7 @@ User Prompt
     -> return JSON to frontend
 """
 
+from typing import Optional
 from datetime import datetime, timezone
 
 from fastapi import APIRouter
@@ -28,6 +29,7 @@ class ChatRequest(BaseModel):
     prompt: str
     session_id: str
     user_id: str = "guest"
+    provider: Optional[str] = None
 
 
 @router.post("/chat")
@@ -40,6 +42,7 @@ async def chat(req: ChatRequest):
     # Blocked prompts never reach an LLM and never store raw text.
     if input_classification["blocked"]:
         lime_explanation = explain(input_classification)
+        input_entities = input_classification.get("pii", {}).get("entities_detected", [])
 
         await db.audit_logs.insert_one(
             new_audit_log(
@@ -53,6 +56,7 @@ async def chat(req: ChatRequest):
                 threat_tier=input_classification["threat_tier"],
                 lime_explanation=lime_explanation,
                 user_id=req.user_id,
+                entities_detected=input_entities,
             )
         )
 
@@ -96,8 +100,8 @@ async def chat(req: ChatRequest):
     ]
     llm_messages.append({"role": "user", "content": masked_prompt})
 
-    # ---- 3. Call the LLM (with rotation) ----
-    completion = await get_completion(llm_messages)
+    # ---- 3. Call the LLM (with rotation or preferred provider) ----
+    completion = await get_completion(llm_messages, preferred_provider=req.provider)
 
     if completion["all_rate_limited"]:
         await db.audit_logs.insert_one(
@@ -152,6 +156,10 @@ async def chat(req: ChatRequest):
     # ---- 6. Audit log ----
     status = input_classification["status"]
     lime_explanation = explain(input_classification) if status != STATUS_SAFE else None
+    
+    input_entities = input_classification.get("pii", {}).get("entities_detected", [])
+    output_entities = output_classification.get("pii", {}).get("entities_detected", [])
+    all_entities = input_entities + output_entities
 
     await db.audit_logs.insert_one(
         new_audit_log(
@@ -165,6 +173,7 @@ async def chat(req: ChatRequest):
             threat_tier=input_classification["threat_tier"],
             lime_explanation=lime_explanation,
             user_id=req.user_id,
+            entities_detected=all_entities,
         )
     )
 
