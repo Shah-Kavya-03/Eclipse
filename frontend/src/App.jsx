@@ -14,9 +14,10 @@ import SettingsModal from './components/modals/SettingsModal';
 import LogoutModal from './components/modals/LogoutModal';
 import './css/style.css';
 import './css/audit.css';
+import './css/light-theme.css';
 
 export default function App() {
-    const { currentUser } = useAuth();
+    const { currentUser, logout } = useAuth();
     const { openConversation, renameConversation, refreshConversationsFromBackend } = useChat();
 
     // Navigation: 'chat' | 'audit'
@@ -37,11 +38,21 @@ export default function App() {
     const [isLoginOpen, setIsLoginOpen] = useState(false);
     const [isSignupOpen, setIsSignupOpen] = useState(false);
     const [isAccountOpen, setIsAccountOpen] = useState(false);
+    const [accountTab, setAccountTab] = useState('information');
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isLogoutOpen, setIsLogoutOpen] = useState(false);
     const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
 
     const profileBtnRef = useRef(null);
+
+    const handleSwitchAccount = async () => {
+        setIsProfileDropdownOpen(false);
+        setIsAccountOpen(false);
+        if (logout) {
+            await logout();
+        }
+        setIsLoginOpen(true);
+    };
 
     // Sync URL when page changes
     const navigateTo = (page) => {
@@ -88,6 +99,34 @@ export default function App() {
         }
     }, [currentUser, openConversation, refreshConversationsFromBackend]);
 
+    // Secure cross-window session sharing for Admin Dashboard (port 5174)
+    useEffect(() => {
+        const handleSessionRequest = (e) => {
+            if (e.origin !== 'http://localhost:5174' && e.origin !== 'http://127.0.0.1:5174') return;
+            if (e.data?.type === 'ECLIPSE_REQUEST_SESSION') {
+                const token = localStorage.getItem('guardrailToken');
+                const userRaw = localStorage.getItem('guardrailUser');
+                if (token && userRaw) {
+                    try {
+                        const parsedUser = JSON.parse(userRaw);
+                        if (parsedUser?.is_admin) {
+                            e.source?.postMessage(
+                                {
+                                    type: 'ECLIPSE_SESSION_RESPONSE',
+                                    token,
+                                    user: parsedUser,
+                                },
+                                e.origin
+                            );
+                        }
+                    } catch {}
+                }
+            }
+        };
+        window.addEventListener('message', handleSessionRequest);
+        return () => window.removeEventListener('message', handleSessionRequest);
+    }, []);
+
     const handleSaveRename = async (newTitle) => {
         if (!renameState.chat) return;
         const success = await renameConversation(renameState.chat.id, newTitle);
@@ -124,7 +163,15 @@ export default function App() {
             <ProfileDropdown
                 isOpen={isProfileDropdownOpen}
                 onClose={() => setIsProfileDropdownOpen(false)}
-                onOpenAccount={() => setIsAccountOpen(true)}
+                onOpenAccount={() => {
+                    setAccountTab('information');
+                    setIsAccountOpen(true);
+                }}
+                onOpenChangePassword={() => {
+                    setAccountTab('password');
+                    setIsAccountOpen(true);
+                }}
+                onOpenSwitchAccount={handleSwitchAccount}
                 onOpenSettings={() => setIsSettingsOpen(true)}
                 onOpenLogout={() => setIsLogoutOpen(true)}
                 anchorRef={profileBtnRef}
@@ -163,8 +210,10 @@ export default function App() {
 
             <AccountModal
                 isOpen={isAccountOpen}
+                initialTab={accountTab}
                 onClose={() => setIsAccountOpen(false)}
                 onOpenSignout={() => setIsLogoutOpen(true)}
+                onSwitchAccount={handleSwitchAccount}
             />
 
             <SettingsModal

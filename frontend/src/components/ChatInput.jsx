@@ -77,13 +77,11 @@ export default function ChatInput({ showSecurityFooter }) {
                 </button>
             </div>
 
-            {/* Part D: hide footer when chat is scrollable */}
-            {footerVisible && (
-                <div className="security-footer" style={{ userSelect: 'none' }}>
-                    <i className="fa-solid fa-lock"></i>
-                    Protected by AI Guardrail
-                </div>
-            )}
+            {/* Security footer is permanently visible */}
+            <div className="security-footer" style={{ userSelect: 'none' }}>
+                <i className="fa-solid fa-lock"></i>
+                Protected by AI Guardrail
+            </div>
         </div>
     );
 }

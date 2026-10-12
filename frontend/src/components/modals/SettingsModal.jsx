@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { API_BASE } from '../../api/config';
 import { useToast } from '../../context/ToastContext';
 import { useChat } from '../../context/ChatContext';
+import { useAuth } from '../../context/AuthContext';
+import EclipseLogo from '../EclipseLogo';
 
 // -------------------------------------------------------
 // Theme helpers
@@ -24,7 +26,7 @@ function applyTheme(theme) {
 }
 
 // -------------------------------------------------------
-// Theme Tab — Bug 6
+// Theme Tab
 // -------------------------------------------------------
 function ThemeTab() {
     const [theme, setTheme] = useState(() => localStorage.getItem('eclipseTheme') || 'dark');
@@ -33,6 +35,7 @@ function ThemeTab() {
         setTheme(val);
         localStorage.setItem('eclipseTheme', val);
         applyTheme(val);
+        window.dispatchEvent(new Event('eclipse-theme-change'));
     };
 
     return (
@@ -62,11 +65,19 @@ function ThemeTab() {
 }
 
 // -------------------------------------------------------
-// AI Provider Tab — Bug 5: Provider only, model hidden
+// AI Provider Tab — Dropdown with supported providers
 // -------------------------------------------------------
+const SUPPORTED_PROVIDERS = [
+    { value: 'gemini',   label: 'Gemini (Default)' },
+    { value: 'groq',     label: 'Groq' },
+    { value: 'cerebras', label: 'Cerebras' },
+    { value: 'nvidia',   label: 'NVIDIA' },
+    { value: 'mistral',  label: 'Mistral' },
+];
+
 function AIModelTab() {
     const { showToast } = useToast();
-    const [settings, setSettings] = useState({ model: '', provider: '' });
+    const [settings, setSettings] = useState({ model: '', provider: 'gemini' });
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
 
@@ -78,7 +89,7 @@ function AIModelTab() {
                     const data = await res.json();
                     setSettings({
                         model: data.model || '',
-                        provider: data.provider || ''
+                        provider: (data.provider || 'gemini').toLowerCase()
                     });
                 }
             } catch (err) {
@@ -92,7 +103,6 @@ function AIModelTab() {
     const handleSave = async () => {
         setSaving(true);
         try {
-            // Bug 5: send both provider + existing model value (unchanged model)
             const res = await fetch(`${API_BASE}/settings`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
@@ -123,21 +133,22 @@ function AIModelTab() {
     return (
         <div className="settings-section">
             <i className="fa-solid fa-robot settings-section-icon"></i>
-            {/* Bug 5: renamed from "AI Model" to "AI Provider" */}
             <h2>AI Provider</h2>
             <p className="settings-desc">Choose the AI provider used by the guardrail. The model is managed automatically.</p>
 
             <div className="settings-form">
                 <label className="settings-label">Provider</label>
-                <input
-                    className="settings-input"
-                    type="text"
-                    placeholder="e.g. google, openai"
-                    value={settings.provider}
+                <select
+                    className="settings-input settings-select"
+                    value={settings.provider || 'gemini'}
                     onChange={(e) => setSettings((s) => ({ ...s, provider: e.target.value }))}
-                />
-                {/* Bug 5: Model input removed — model is decided by backend, not user.
-                    The model value is preserved internally and sent back unchanged on save. */}
+                >
+                    {SUPPORTED_PROVIDERS.map((p) => (
+                        <option key={p.value} value={p.value}>
+                            {p.label}
+                        </option>
+                    ))}
+                </select>
 
                 <button
                     className="settings-save-btn"
@@ -152,30 +163,44 @@ function AIModelTab() {
 }
 
 // -------------------------------------------------------
-// Clear History Tab — Bug 4: wired to ChatContext.clearAllHistory
+// Clear History Tab — Sends user_id to backend
 // -------------------------------------------------------
 function ClearHistoryTab() {
     const { showToast } = useToast();
     const { clearAllHistory } = useChat();
+    const { currentUser, token } = useAuth();
     const [confirming, setConfirming] = useState(false);
     const [clearing, setClearing] = useState(false);
 
     const handleClear = async () => {
         setClearing(true);
         try {
-            // Bug 4: pass the API call as callback so ChatContext can clear state on success
             const success = await clearAllHistory(async () => {
-                const res = await fetch(`${API_BASE}/settings/clear-history`, { method: 'POST' });
-                if (res.ok) {
+                if (currentUser?.user_id) {
+                    const res = await fetch(`${API_BASE}/settings/clear-history`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                        },
+                        body: JSON.stringify({ user_id: currentUser.user_id })
+                    });
+                    if (res.ok) {
+                        showToast('Chat history cleared.', 'success');
+                        return true;
+                    } else {
+                        const errData = await res.json().catch(() => ({}));
+                        showToast(errData.detail || 'Failed to clear history.', 'error');
+                        return false;
+                    }
+                } else {
+                    // Guest user: clear local state
                     showToast('Chat history cleared.', 'success');
                     return true;
-                } else {
-                    showToast('Failed to clear history.', 'error');
-                    return false;
                 }
             });
             if (!success) {
-                // showToast already called inside; no extra action needed
+                // handled inside
             }
         } catch (err) {
             showToast('Could not reach the server.', 'error');
@@ -230,25 +255,52 @@ function ClearHistoryTab() {
 }
 
 // -------------------------------------------------------
-// Highlight Suspicious Content Tab — Bug 7
+// Guardrail Version Tab — Official Version Info
 // -------------------------------------------------------
-function HighlightSuspiciousTab() {
+function GuardrailVersionTab() {
     return (
         <div className="settings-section">
-            <i className="fa-solid fa-triangle-exclamation settings-section-icon"></i>
-            <h2>Highlight Suspicious Content</h2>
+            <div className="version-header-box">
+                <EclipseLogo className="version-brand-logo" alt="Eclipse" />
+                <div>
+                    <h2>Eclipse 1.0</h2>
+                    <span className="version-tag">Release v1.0.0 (Production)</span>
+                </div>
+            </div>
+
             <p className="settings-desc">
-                When the guardrail detects suspicious or flagged content in an AI response, it will be
-                highlighted directly in the chat. This uses data already provided by the backend — no
-                additional configuration needed.
+                Eclipse LLM Guardrail provides real-time security shielding for language model interactions.
             </p>
-            <div className="settings-info-box">
-                <i className="fa-solid fa-circle-info"></i>
-                <span>
-                    Suspicious content highlighting is <strong>automatically active</strong>. When the backend
-                    flags content (threat category, suspicious spans, etc.), those messages will display a
-                    visual indicator in the chat area.
-                </span>
+
+            <div className="version-details-grid">
+                <div className="version-item">
+                    <span className="version-item-label">Application Version</span>
+                    <span className="version-item-val">Eclipse 1.0</span>
+                </div>
+                <div className="version-item">
+                    <span className="version-item-label">Guardrail Engine</span>
+                    <span className="version-item-val status-active">
+                        <i className="fa-solid fa-circle-check"></i> Multi-layer Protection Active
+                    </span>
+                </div>
+                <div className="version-item">
+                    <span className="version-item-label">Prompt Injection Guard</span>
+                    <span className="version-item-val status-active">
+                        <i className="fa-solid fa-circle-check"></i> Enabled
+                    </span>
+                </div>
+                <div className="version-item">
+                    <span className="version-item-label">PII Anonymization Filter</span>
+                    <span className="version-item-val status-active">
+                        <i className="fa-solid fa-circle-check"></i> Enabled
+                    </span>
+                </div>
+                <div className="version-item">
+                    <span className="version-item-label">Harmful Content & Jailbreak Shield</span>
+                    <span className="version-item-val status-active">
+                        <i className="fa-solid fa-circle-check"></i> Enabled
+                    </span>
+                </div>
             </div>
         </div>
     );
@@ -283,17 +335,9 @@ export default function SettingsModal({ isOpen, onClose }) {
             case 'model':
                 return <AIModelTab />;
             case 'version':
-                return (
-                    <div className="settings-placeholder">
-                        <i className="fa-solid fa-shield-halved"></i>
-                        <h2>Guardrail Version</h2>
-                        <p>This section is under development.</p>
-                    </div>
-                );
+                return <GuardrailVersionTab />;
             case 'history':
                 return <ClearHistoryTab />;
-            case 'highlight':
-                return <HighlightSuspiciousTab />;
             case 'theme':
                 return <ThemeTab />;
             case 'accent':
@@ -331,7 +375,6 @@ export default function SettingsModal({ isOpen, onClose }) {
                     <div className="settings-sidebar">
                         <div className="settings-heading">General</div>
 
-                        {/* Bug 5: tab label changed to "AI Provider" */}
                         <button
                             className={`settings-tab ${activeTab === 'model' ? 'active' : ''}`}
                             onClick={() => setActiveTab('model')}
@@ -351,15 +394,6 @@ export default function SettingsModal({ isOpen, onClose }) {
                             onClick={() => setActiveTab('history')}
                         >
                             Clear Chat History
-                        </button>
-
-                        <div className="settings-heading">Security</div>
-
-                        <button
-                            className={`settings-tab ${activeTab === 'highlight' ? 'active' : ''}`}
-                            onClick={() => setActiveTab('highlight')}
-                        >
-                            Highlight Suspicious Content
                         </button>
 
                         <div className="settings-heading">Personalization</div>

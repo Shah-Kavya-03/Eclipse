@@ -19,7 +19,6 @@ import { ChatProvider } from './context/ChatContext';
     // 'dark' is the default — no attribute needed
 })();
 
-//document.documentElement.setAttribute('data-theme', 'light');
 ReactDOM.createRoot(document.getElementById('root')).render(
     <React.StrictMode>
         <ToastProvider>

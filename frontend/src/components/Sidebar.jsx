@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useChat } from '../context/ChatContext';
+import EclipseLogo from './EclipseLogo';
 
 export default function Sidebar({
     collapsed,
@@ -24,6 +25,34 @@ export default function Sidebar({
     } = useChat();
 
     const [activeMenuId, setActiveMenuId] = useState(null);
+    const [theme, setTheme] = useState(() => {
+        return localStorage.getItem('eclipseTheme') || 'dark';
+    });
+
+    useEffect(() => {
+        const handleThemeChange = () => {
+            setTheme(localStorage.getItem('eclipseTheme') || 'dark');
+        };
+        window.addEventListener('eclipse-theme-change', handleThemeChange);
+        window.addEventListener('storage', handleThemeChange);
+        return () => {
+            window.removeEventListener('eclipse-theme-change', handleThemeChange);
+            window.removeEventListener('storage', handleThemeChange);
+        };
+    }, []);
+
+    const handleToggleTheme = () => {
+        const nextTheme = theme === 'light' ? 'dark' : 'light';
+        setTheme(nextTheme);
+        localStorage.setItem('eclipseTheme', nextTheme);
+        const root = document.documentElement;
+        if (nextTheme === 'light') {
+            root.setAttribute('data-theme', 'light');
+        } else {
+            root.removeAttribute('data-theme');
+        }
+        window.dispatchEvent(new Event('eclipse-theme-change'));
+    };
 
     // Close any open chat item menu when clicking anywhere else
     useEffect(() => {
@@ -63,20 +92,21 @@ export default function Sidebar({
                     <button
                         id="toggleSidebar"
                         className="icon-btn tooltip"
-
-                        onClick={onToggleCollapse}
+                        data-tooltip="Toggle Sidebar"
+                        onClick={(e) => {
+                            e.currentTarget.blur();
+                            onToggleCollapse();
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.blur();
+                        }}
                         aria-label="Toggle Sidebar"
                     >
                         <i className="fa-solid fa-bars"></i>
                     </button>
-                    <span className="sidebar-toggle-tooltip">
-                        Toggle Sidebar
-                    </span>
                 </div>
                 <div className="logo">
-                    <div className="logo-icon">
-                        <i className="fa-solid fa-shield-halved"></i>
-                    </div>
+                    <EclipseLogo className="sidebar-brand-logo" alt="Eclipse" />
                     <span
                         className="logo-text"
                         style={{ userSelect: 'none' }}
@@ -91,7 +121,13 @@ export default function Sidebar({
             <button
                 className="new-chat-btn tooltip"
                 data-tooltip="New Chat"
-                onClick={handleNewChat}
+                onClick={(e) => {
+                    e.currentTarget.blur();
+                    handleNewChat();
+                }}
+                onMouseLeave={(e) => {
+                    e.currentTarget.blur();
+                }}
             >
                 <i className="fa-solid fa-plus"></i>
                 <span style={{ userSelect: 'none' }} draggable="false">
@@ -103,12 +139,16 @@ export default function Sidebar({
             <nav className="nav-links">
                 <a
                     href="#"
-                    className="tooltip"
+                    className="tooltip search-nav-btn"
                     id="searchBtn"
                     data-tooltip="Search Chats"
                     onClick={(e) => {
                         e.preventDefault();
+                        e.currentTarget.blur();
                         onOpenSearch();
+                    }}
+                    onMouseLeave={(e) => {
+                        e.currentTarget.blur();
                     }}
                 >
                     <i className="fa-solid fa-magnifying-glass"></i>
@@ -116,6 +156,26 @@ export default function Sidebar({
                         Search Chats
                     </span>
                 </a>
+
+                {currentUser?.is_admin && (
+                    <a
+                        href="http://localhost:5174/admin"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="tooltip admin-nav-btn"
+                        id="adminSidebarBtn"
+                        data-tooltip="Admin Dashboard"
+                        onMouseLeave={(e) => {
+                            e.currentTarget.blur();
+                        }}
+                        style={{ color: 'var(--accent-primary, #8B7CFF)' }}
+                    >
+                        <i className="fa-solid fa-shield-halved" style={{ color: 'var(--accent-primary, #8B7CFF)' }}></i>
+                        <span style={{ userSelect: 'none', color: 'var(--accent-primary, #8B7CFF)', fontWeight: 600 }} draggable="false">
+                            Admin Dashboard
+                        </span>
+                    </a>
+                )}
             </nav>
 
             {/* RECENT CHATS */}
@@ -211,30 +271,63 @@ export default function Sidebar({
                 </div>
             </div>
 
-            {/* PROFILE */}
-            <div
-                className="profile-area"
-                id="profileBtn"
-                ref={profileBtnRef}
-                onClick={handleProfileClick}
-                style={{ cursor: 'pointer' }}
-            >
-                <div className="profile-circle">
-                    <i className="fa-solid fa-user"></i>
-                </div>
+            {/* SIDEBAR FOOTER: THEME TOGGLE & PROFILE */}
+            <div className="sidebar-footer">
+                {/* THEME TOGGLE (Immediately above user profile) */}
+                <button
+                    type="button"
+                    className="sidebar-theme-toggle tooltip"
+                    id="sidebarThemeToggle"
+                    data-tooltip={theme === 'light' ? 'Dark Mode' : 'Light Mode'}
+                    onClick={(e) => {
+                        e.currentTarget.blur();
+                        handleToggleTheme();
+                    }}
+                    onMouseLeave={(e) => {
+                        e.currentTarget.blur();
+                    }}
+                    aria-label="Toggle Theme"
+                >
+                    <div className="theme-toggle-icon">
+                        <i className={`fa-solid ${theme === 'light' ? 'fa-moon' : 'fa-sun'}`}></i>
+                    </div>
+                    {!collapsed && (
+                        <span className="theme-toggle-label" style={{ userSelect: 'none' }} draggable="false">
+                            {theme === 'light' ? 'Dark Mode' : 'Light Mode'}
+                        </span>
+                    )}
+                </button>
 
-                <div className="profile-details">
-                    <span
-                        className="username"
-                        style={{ userSelect: 'none' }}
-                        draggable="false"
-                    >
-                        {currentUser ? currentUser.name : 'Log In'}
-                    </span>
+                {/* PROFILE */}
+                <div
+                    className="profile-area"
+                    id="profileBtn"
+                    ref={profileBtnRef}
+                    onClick={handleProfileClick}
+                    style={{ cursor: 'pointer' }}
+                    aria-label={currentUser ? 'Open Profile Menu' : 'Sign In'}
+                    tabIndex={collapsed ? 0 : undefined}
+                    role={collapsed ? 'button' : undefined}
+                    onKeyDown={(e) => {
+                        if (collapsed && (e.key === 'Enter' || e.key === ' ')) {
+                            e.preventDefault();
+                            handleProfileClick(e);
+                        }
+                    }}
+                >
+                    <div className="profile-circle">
+                        <i className="fa-solid fa-user"></i>
+                    </div>
 
-                    <small style={{ userSelect: 'none' }} draggable="false">
-                        {currentUser ? currentUser.email : 'Guest User'}
-                    </small>
+                    <div className="profile-details">
+                        <span
+                            className="username"
+                            style={{ userSelect: 'none' }}
+                            draggable="false"
+                        >
+                            {currentUser ? (currentUser.name || currentUser.username || 'User') : 'Sign In'}
+                        </span>
+                    </div>
                 </div>
             </div>
         </aside>

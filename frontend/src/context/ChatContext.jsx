@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import {
     apiSendChat,
     apiGetConversations,
@@ -25,14 +25,23 @@ export function ChatProvider({ children }) {
     const { currentUser, registerLogoutCallback } = useAuth();
     const { showToast } = useToast();
 
-    // Bug 2: Never load from localStorage on initial render — always start empty.
+    // Priority 1: Never load from localStorage on initial render — always start empty.
     // Conversations are fetched from the backend once auth is confirmed.
     const [conversations, setConversations] = useState([]);
     const [currentConversationId, setCurrentConversationId] = useState(null);
     const [isTyping, setIsTyping] = useState(false);
 
-    // Bug 2: Function to clear all conversation state immediately
+    // Session token and user ref to invalidate any in-flight requests on logout or account switch
+    const activeSessionRef = useRef(0);
+    const activeUserIdRef = useRef(currentUser?.user_id || null);
+
+    useEffect(() => {
+        activeUserIdRef.current = currentUser?.user_id || null;
+    }, [currentUser?.user_id]);
+
+    // Priority 1: Clear all conversation state immediately and invalidate pending requests
     const clearConversationState = useCallback(() => {
+        activeSessionRef.current += 1;
         setConversations([]);
         setCurrentConversationId(null);
         setIsTyping(false);
@@ -40,21 +49,29 @@ export function ChatProvider({ children }) {
         localStorage.removeItem('guardrailChats');
     }, []);
 
-    // Bug 2: Register the clear-state callback with AuthContext so logout clears conversations
+    // Register clear-state callback with AuthContext so logout immediately purges chat history
     useEffect(() => {
         if (registerLogoutCallback) {
             registerLogoutCallback(clearConversationState);
         }
     }, [registerLogoutCallback, clearConversationState]);
 
-    // Refresh conversations from backend for logged-in users
+    // Refresh conversations from backend for logged-in users with strict session verification
     const refreshConversationsFromBackend = useCallback(async () => {
-        if (!currentUser?.user_id) return;
+        const targetUserId = currentUser?.user_id;
+        if (!targetUserId) {
+            clearConversationState();
+            return;
+        }
+        const sessionToken = ++activeSessionRef.current;
+
         try {
-            const data = await apiGetConversations(currentUser.user_id);
-            // Bug 2: only populate conversations when we have valid data
+            const data = await apiGetConversations(targetUserId);
+            // Verify session token and active user ID are still valid
+            if (activeSessionRef.current !== sessionToken || activeUserIdRef.current !== targetUserId) {
+                return; // User logged out or switched accounts while request was in-flight
+            }
             if (!data || !Array.isArray(data.conversations)) {
-                // API error — do NOT show as Blocked, just leave empty
                 console.warn('Unexpected conversations response:', data);
                 return;
             }
@@ -68,7 +85,9 @@ export function ChatProvider({ children }) {
                 loaded: false
             }));
             setConversations((prev) => {
-                // Preserve local loaded message states or pinned states where matching
+                if (activeSessionRef.current !== sessionToken || activeUserIdRef.current !== targetUserId) {
+                    return [];
+                }
                 const merged = fetched.map((f) => {
                     const existing = prev.find((p) => String(p.id) === String(f.id));
                     if (existing && existing.loaded) {
@@ -87,22 +106,17 @@ export function ChatProvider({ children }) {
                 return sortConversationsList(merged);
             });
         } catch (err) {
-            // Bug 2: API error is NOT a guardrail block — do not show as Blocked
             console.error('Failed to load conversations from backend:', err);
         }
-    }, [currentUser]);
+    }, [currentUser?.user_id, clearConversationState]);
 
-    // Bug 2: When auth changes — clear state first, then fetch if logged in
+    // When auth changes — wipe state immediately, then fetch only if logged in
     useEffect(() => {
+        clearConversationState();
         if (currentUser?.user_id) {
-            // Fetch conversations for the newly authenticated user
             refreshConversationsFromBackend();
-        } else {
-            // Guest mode: ensure clean state — no conversations visible
-            setConversations([]);
-            setCurrentConversationId(null);
         }
-    }, [currentUser, refreshConversationsFromBackend]);
+    }, [currentUser?.user_id, refreshConversationsFromBackend, clearConversationState]);
 
     const currentConversation = conversations.find(
         (c) => String(c.id) === String(currentConversationId)
@@ -114,21 +128,31 @@ export function ChatProvider({ children }) {
             const chat = conversations.find((c) => String(c.id) === String(id));
             if (!chat) return;
 
+            const sessionToken = activeSessionRef.current;
+            const currentUserId = activeUserIdRef.current;
+
             // Lazy load messages if needed
             if (chat.loaded === false) {
                 try {
                     const data = await apiGetConversation(id);
+                    // Discard response if session changed or user logged out
+                    if (activeSessionRef.current !== sessionToken || activeUserIdRef.current !== currentUserId) {
+                        return;
+                    }
                     const loadedMessages = (data.messages || []).map((m) => ({
                         sender: m.sender === 'assistant' ? 'ai' : 'user',
                         text: m.text
                     }));
-                    setConversations((prev) =>
-                        prev.map((c) =>
+                    setConversations((prev) => {
+                        if (activeSessionRef.current !== sessionToken || activeUserIdRef.current !== currentUserId) {
+                            return [];
+                        }
+                        return prev.map((c) =>
                             String(c.id) === String(id)
                                 ? { ...c, messages: loadedMessages, loaded: true }
                                 : c
-                        )
-                    );
+                        );
+                    });
                 } catch (err) {
                     console.error('Failed to load conversation history:', err);
                 }
@@ -146,6 +170,9 @@ export function ChatProvider({ children }) {
         async (text) => {
             const trimmed = text.trim();
             if (!trimmed || isTyping) return;
+
+            const sessionToken = activeSessionRef.current;
+            const sendingUserId = currentUser?.user_id || 'guest';
 
             let targetId = currentConversationId;
             let currentList = [...conversations];
@@ -183,8 +210,13 @@ export function ChatProvider({ children }) {
                 const data = await apiSendChat(
                     trimmed,
                     targetId,
-                    currentUser?.user_id || 'guest'
+                    sendingUserId
                 );
+
+                // If user logged out or session switched while awaiting response, discard
+                if (activeSessionRef.current !== sessionToken || (activeUserIdRef.current || 'guest') !== sendingUserId) {
+                    return;
+                }
 
                 const displayStatus = mapBackendStatus(data.status);
                 const replyText = data.response
@@ -193,14 +225,12 @@ export function ChatProvider({ children }) {
                       data.lime_explanation ||
                       'Your message could not be processed.';
 
-                // Bug 13: preserve all redaction/audit fields from backend response
                 const aiMessage = {
                     sender: 'ai',
                     text: replyText,
                     status: displayStatus,
                     blocked_reason: data.blocked_reason || null,
                     lime_explanation: data.lime_explanation || null,
-                    // Preserve any redaction metadata the backend provides
                     redactions: data.redactions || data.redacted_fields || null,
                     processed_prompt: data.processed_prompt || null,
                     processed_response: data.processed_response || null,
@@ -208,8 +238,11 @@ export function ChatProvider({ children }) {
                     threat_category: data.threat_category || data.category || null,
                 };
 
-                setConversations((prev) =>
-                    prev.map((c) => {
+                setConversations((prev) => {
+                    if (activeSessionRef.current !== sessionToken || (activeUserIdRef.current || 'guest') !== sendingUserId) {
+                        return [];
+                    }
+                    return prev.map((c) => {
                         if (String(c.id) === String(targetId)) {
                             return {
                                 ...c,
@@ -220,14 +253,15 @@ export function ChatProvider({ children }) {
                             };
                         }
                         return c;
-                    })
-                );
+                    });
+                });
             } catch (err) {
-                // Bug 3: network/API error must NOT be classified as Blocked
+                if (activeSessionRef.current !== sessionToken) return;
                 console.error('Chat request failed:', err);
                 const errorText = 'Could not reach the guardrail backend. Is the server running?';
-                setConversations((prev) =>
-                    prev.map((c) => {
+                setConversations((prev) => {
+                    if (activeSessionRef.current !== sessionToken) return [];
+                    return prev.map((c) => {
                         if (String(c.id) === String(targetId)) {
                             return {
                                 ...c,
@@ -235,10 +269,12 @@ export function ChatProvider({ children }) {
                             };
                         }
                         return c;
-                    })
-                );
+                    });
+                });
             } finally {
-                setIsTyping(false);
+                if (activeSessionRef.current === sessionToken) {
+                    setIsTyping(false);
+                }
             }
         },
         [conversations, currentConversationId, currentUser, isTyping]

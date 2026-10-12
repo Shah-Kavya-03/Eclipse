@@ -234,11 +234,13 @@ export default function ChatMessage({ message, isTypingIndicator }) {
                 <div className="message-avatar">
                     <i className="fa-solid fa-shield-halved"></i>
                 </div>
-                <div className="message-content">
-                    <div className="typing">
+                <div className="message-main">
+                    <div className="message-content">
+                        <div className="typing">
                         <span></span>
                         <span></span>
                         <span></span>
+                    </div>
                     </div>
                 </div>
             </div>

@@ -7,12 +7,14 @@ export default function LoginModal({ isOpen, onClose, onOpenSignup }) {
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [authError, setAuthError] = useState(null);
 
     useEffect(() => {
         if (isOpen) {
             setEmail('');
             setPassword('');
             setShowPassword(false);
+            setAuthError(null);
         }
     }, [isOpen]);
 
@@ -30,12 +32,32 @@ export default function LoginModal({ isOpen, onClose, onOpenSignup }) {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (loading) return;
+        setAuthError(null);
         setLoading(true);
-        const success = await login(email, password);
+        const res = await login(email, password);
         setLoading(false);
-        if (success) {
+        if (res && res.success) {
             onClose();
+        } else {
+            if (res?.errorType === 'invalid_credentials' || res?.status === 401) {
+                setAuthError('Invalid email or password. Please try again.');
+            } else if (res?.errorType === 'network_error') {
+                setAuthError('Could not reach the server. Please check your connection or backend server.');
+            } else {
+                setAuthError(res?.detail || 'Login failed. Please try again later.');
+            }
         }
+    };
+
+    const handleEmailChange = (e) => {
+        setEmail(e.target.value);
+        if (authError) setAuthError(null);
+    };
+
+    const handlePasswordChange = (e) => {
+        setPassword(e.target.value);
+        if (authError) setAuthError(null);
     };
 
     return (
@@ -60,7 +82,7 @@ export default function LoginModal({ isOpen, onClose, onOpenSignup }) {
                         placeholder="Email Address"
                         required
                         value={email}
-                        onChange={(e) => setEmail(e.target.value)}
+                        onChange={handleEmailChange}
                     />
 
                     <div className="password-wrapper">
@@ -70,7 +92,7 @@ export default function LoginModal({ isOpen, onClose, onOpenSignup }) {
                             placeholder="Password"
                             required
                             value={password}
-                            onChange={(e) => setPassword(e.target.value)}
+                            onChange={handlePasswordChange}
                         />
                         <button
                             type="button"
@@ -89,6 +111,13 @@ export default function LoginModal({ isOpen, onClose, onOpenSignup }) {
                     <button type="submit" className="login-btn" disabled={loading}>
                         {loading ? 'Signing in...' : 'Sign In'}
                     </button>
+
+                    {authError && (
+                        <div className="auth-error-message" role="alert">
+                            <i className="fa-solid fa-circle-exclamation"></i>
+                            <span>{authError}</span>
+                        </div>
+                    )}
 
                     <p className="signup-text">
                         Don't have an account?{' '}

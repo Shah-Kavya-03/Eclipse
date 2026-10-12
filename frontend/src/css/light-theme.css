@@ -1,0 +1,694 @@
+/* =========================================================
+   ECLIPSE LLM GUARDRAIL — LIGHT THEME GLASSMORPHISM SPECIFICATION
+   Matches Reference Screenshot: media_1791824014259.png
+   Luminous Ice-Blue/White Glass Surfaces, Cyan/Lavender Orbs,
+   Crisp Dark Navy Typography & Cyan/Blue/Violet Accents.
+   ========================================================= */
+
+/* ---- Root Custom Properties (Light Glassmorphism Mode) ---- */
+html[data-theme="light"] {
+    --app-background: #f0f4fc;
+    --background-glow: radial-gradient(circle at 85% 15%, rgba(187, 242, 246, 0.75) 0%, transparent 45%),
+                       radial-gradient(circle at 15% 85%, rgba(221, 214, 254, 0.65) 0%, transparent 50%),
+                       radial-gradient(circle at 50% 50%, rgba(224, 231, 255, 0.5) 0%, transparent 60%);
+
+    --glass-background: rgba(255, 255, 255, 0.65);
+    --glass-background-strong: rgba(255, 255, 255, 0.88);
+    --glass-border: rgba(255, 255, 255, 0.85);
+    --glass-border-subtle: rgba(255, 255, 255, 0.6);
+    --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.08);
+    --glass-blur: blur(24px) saturate(180%);
+
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --text-muted: #64748b;
+
+    --accent-primary: #0284c7;
+    --accent-secondary: #2563eb;
+    --accent-violet: #7c3aed;
+    --accent-gradient: linear-gradient(90deg, #00b4d8 0%, #3b82f6 50%, #8b5cf6 100%);
+    --button-gradient: linear-gradient(90deg, #00d2ff 0%, #3a7bd5 50%, #a855f7 100%);
+    --send-gradient: linear-gradient(135deg, #00d2ff 0%, #2563eb 50%, #7c3aed 100%);
+
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+
+    --input-background: rgba(255, 255, 255, 0.72);
+    --message-user-background: linear-gradient(135deg, rgba(224, 242, 254, 0.9), rgba(219, 234, 254, 0.95));
+    --message-assistant-background: rgba(255, 255, 255, 0.78);
+
+    --tooltip-background: rgba(255, 255, 255, 0.96);
+    --tooltip-border: rgba(203, 213, 225, 0.8);
+    --overlay-background: rgba(15, 23, 42, 0.35);
+    --focus-ring: 0 0 0 2px rgba(2, 132, 199, 0.4);
+
+    /* Legacy compatibility aliases */
+    --bg: #f0f4fc;
+    --sidebar: rgba(255, 255, 255, 0.65);
+    --surface: rgba(255, 255, 255, 0.78);
+    --surface2: rgba(241, 245, 249, 0.85);
+    --primary: #0284c7;
+    --primary-hover: #0369a1;
+    --text: #0f172a;
+    --text2: #475569;
+    --text3: #64748b;
+    --border: rgba(255, 255, 255, 0.85);
+    --shadow: 0 8px 32px rgba(31, 38, 135, 0.08);
+}
+
+/* ---- Ambient Page Background ---- */
+html[data-theme="light"] body {
+    background-color: #f0f4fc !important;
+    background-image: 
+        radial-gradient(circle at 85% 15%, rgba(187, 242, 246, 0.75) 0%, transparent 45%),
+        radial-gradient(circle at 15% 85%, rgba(221, 214, 254, 0.65) 0%, transparent 50%),
+        radial-gradient(circle at 50% 50%, rgba(224, 231, 255, 0.5) 0%, transparent 60%) !important;
+    background-attachment: fixed !important;
+    background-size: cover !important;
+    color: #0f172a !important;
+}
+
+html[data-theme="light"] #root,
+html[data-theme="light"] .app,
+html[data-theme="light"] .main {
+    background: transparent !important;
+    background-color: transparent !important;
+    background-image: none !important;
+}
+
+/* ---- Floating Glass Sidebar ---- */
+html[data-theme="light"] .sidebar {
+    background: rgba(255, 255, 255, 0.65) !important;
+    backdrop-filter: blur(24px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.85) !important;
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.08) !important;
+    color: #0f172a !important;
+}
+
+html[data-theme="light"] .logo-icon {
+    background: linear-gradient(135deg, #00d2ff, #2563eb, #a855f7) !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 14px rgba(0, 210, 255, 0.35) !important;
+}
+
+html[data-theme="light"] .logo-text {
+    color: #0f172a !important;
+}
+
+html[data-theme="light"] .icon-btn {
+    color: #0f172a !important;
+}
+
+html[data-theme="light"] .icon-btn:hover {
+    background: rgba(255, 255, 255, 0.85) !important;
+    color: #0284c7 !important;
+}
+
+/* ---- + New Chat Button (Vibrant Gradient Matching Screenshot) ---- */
+html[data-theme="light"] .new-chat-btn {
+    background: linear-gradient(90deg, #00d2ff 0%, #3a7bd5 50%, #a855f7 100%) !important;
+    color: #ffffff !important;
+    border: none !important;
+    box-shadow: 0 4px 18px rgba(0, 210, 255, 0.35) !important;
+}
+
+html[data-theme="light"] .new-chat-btn:hover {
+    box-shadow: 0 6px 24px rgba(0, 210, 255, 0.5) !important;
+    filter: brightness(1.05) !important;
+}
+
+/* ---- Search Chats Glass Pill ---- */
+html[data-theme="light"] .search-nav-btn,
+html[data-theme="light"] #searchBtn {
+    background: rgba(255, 255, 255, 0.55) !important;
+    border: 1px solid rgba(255, 255, 255, 0.85) !important;
+    color: #475569 !important;
+    box-shadow: 0 2px 10px rgba(31, 38, 135, 0.04) !important;
+}
+
+html[data-theme="light"] .search-nav-btn:hover,
+html[data-theme="light"] #searchBtn:hover {
+    background: rgba(255, 255, 255, 0.85) !important;
+    color: #0f172a !important;
+    border-color: rgba(255, 255, 255, 1) !important;
+}
+
+/* ---- Recent Chats List ---- */
+html[data-theme="light"] .recent-title {
+    color: #64748b !important;
+}
+
+html[data-theme="light"] .chat-item {
+    background: rgba(255, 255, 255, 0.45) !important;
+    border: 1px solid rgba(255, 255, 255, 0.65) !important;
+    color: #0f172a !important;
+}
+
+html[data-theme="light"] .chat-item:hover {
+    background: rgba(255, 255, 255, 0.85) !important;
+    border-color: rgba(255, 255, 255, 0.95) !important;
+    box-shadow: 0 4px 14px rgba(31, 38, 135, 0.06) !important;
+}
+
+html[data-theme="light"] .chat-item.active {
+    background: rgba(2, 132, 199, 0.12) !important;
+    border-color: rgba(2, 132, 199, 0.35) !important;
+    color: #0284c7 !important;
+}
+
+html[data-theme="light"] .chat-menu-btn {
+    color: #64748b !important;
+}
+
+html[data-theme="light"] .chat-menu-btn:hover {
+    color: #0f172a !important;
+}
+
+html[data-theme="light"] .chat-menu {
+    background: rgba(255, 255, 255, 0.95) !important;
+    backdrop-filter: blur(20px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.9) !important;
+    box-shadow: 0 10px 30px rgba(31, 38, 135, 0.15) !important;
+}
+
+html[data-theme="light"] .chat-menu button {
+    color: #0f172a !important;
+}
+
+html[data-theme="light"] .chat-menu button:hover {
+    background: rgba(2, 132, 199, 0.1) !important;
+    color: #0284c7 !important;
+}
+
+/* ---- Sidebar Footer (Theme Toggle & Profile) ---- */
+html[data-theme="light"] .sidebar-footer {
+    border-top: 1px solid rgba(255, 255, 255, 0.6) !important;
+}
+
+html[data-theme="light"] .sidebar-theme-toggle {
+    background: rgba(255, 255, 255, 0.55) !important;
+    border: 1px solid rgba(255, 255, 255, 0.85) !important;
+    color: #0f172a !important;
+}
+
+html[data-theme="light"] .sidebar-theme-toggle:hover {
+    background: rgba(255, 255, 255, 0.85) !important;
+    color: #0284c7 !important;
+    border-color: rgba(255, 255, 255, 1) !important;
+}
+
+html[data-theme="light"] .theme-toggle-icon {
+    color: #0284c7 !important;
+}
+
+html[data-theme="light"] .profile-area:hover {
+    background: rgba(255, 255, 255, 0.6) !important;
+    border-color: rgba(255, 255, 255, 0.8) !important;
+}
+
+html[data-theme="light"] .profile-circle {
+    background: linear-gradient(135deg, #00d2ff, #2563eb) !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 10px rgba(0, 210, 255, 0.3) !important;
+}
+
+html[data-theme="light"] .profile-details .username {
+    color: #0f172a !important;
+    font-weight: 600 !important;
+}
+
+/* ---- Collapsed Sidebar Tooltips in Light Mode ---- */
+html[data-theme="light"] .sidebar.collapsed .tooltip::after {
+    background: rgba(255, 255, 255, 0.96) !important;
+    backdrop-filter: blur(16px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+    color: #0f172a !important;
+    border: 1px solid rgba(203, 213, 225, 0.85) !important;
+    box-shadow: 0 8px 24px rgba(31, 38, 135, 0.14) !important;
+}
+
+html[data-theme="light"] .sidebar.collapsed .tooltip::before {
+    border-color: transparent rgba(255, 255, 255, 0.96) transparent transparent !important;
+}
+
+/* ---- Profile Dropdown in Light Mode ---- */
+html[data-theme="light"] .profile-dropdown {
+    background: rgba(255, 255, 255, 0.92) !important;
+    backdrop-filter: blur(24px) !important;
+    -webkit-backdrop-filter: blur(24px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.95) !important;
+    box-shadow: 0 15px 40px rgba(31, 38, 135, 0.12) !important;
+    color: #0f172a !important;
+}
+
+html[data-theme="light"] .profile-dropdown h4 {
+    color: #0f172a !important;
+}
+
+html[data-theme="light"] .profile-dropdown small {
+    color: #475569 !important;
+}
+
+html[data-theme="light"] .profile-dropdown .dropdown-item {
+    color: #0f172a !important;
+}
+
+html[data-theme="light"] .profile-dropdown .dropdown-item:hover {
+    background: rgba(2, 132, 199, 0.1) !important;
+    color: #0284c7 !important;
+}
+
+html[data-theme="light"] .profile-dropdown .dropdown-divider {
+    background: rgba(203, 213, 225, 0.6) !important;
+}
+
+/* ---- Main Welcome Screen in Light Mode ---- */
+html[data-theme="light"] .welcome-screen .shield {
+    background: linear-gradient(135deg, #00d2ff 0%, #2563eb 50%, #a855f7 100%) !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 50px rgba(56, 189, 248, 0.4), 0 0 80px rgba(168, 85, 247, 0.25) !important;
+}
+
+html[data-theme="light"] #welcomeHeading {
+    color: #0f172a !important;
+}
+
+html[data-theme="light"] .welcome-name-gradient {
+    background: linear-gradient(90deg, #00b4d8 0%, #3b82f6 50%, #8b5cf6 100%) !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+}
+
+html[data-theme="light"] #welcomeText {
+    color: #475569 !important;
+}
+
+html[data-theme="light"] #signInButton {
+    background: linear-gradient(135deg, #00d2ff, #2563eb) !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 14px rgba(0, 210, 255, 0.35) !important;
+}
+
+/* ---- Chat Container & Messages in Light Mode ---- */
+html[data-theme="light"] .chat-container {
+    background: transparent !important;
+}
+
+html[data-theme="light"] .user-message .message-content {
+    background: linear-gradient(135deg, rgba(224, 242, 254, 0.9), rgba(219, 234, 254, 0.95)) !important;
+    border: 1px solid rgba(147, 197, 253, 0.5) !important;
+    color: #0f172a !important;
+    box-shadow: 0 4px 16px rgba(31, 38, 135, 0.06) !important;
+}
+
+html[data-theme="light"] .user-message .message-content * {
+    color: #0f172a !important;
+}
+
+html[data-theme="light"] .user-message .message-avatar {
+    background: linear-gradient(135deg, #00d2ff, #2563eb) !important;
+    color: #ffffff !important;
+}
+
+html[data-theme="light"] .ai-message .message-content {
+    background: rgba(255, 255, 255, 0.78) !important;
+    backdrop-filter: blur(16px) !important;
+    -webkit-backdrop-filter: blur(16px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.9) !important;
+    color: #1e293b !important;
+    box-shadow: 0 4px 20px rgba(31, 38, 135, 0.05) !important;
+}
+
+html[data-theme="light"] .ai-message .message-content * {
+    color: #1e293b !important;
+}
+
+html[data-theme="light"] .ai-message .message-avatar {
+    background: linear-gradient(135deg, #00d2ff, #2563eb) !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 10px rgba(0, 210, 255, 0.3) !important;
+}
+
+html[data-theme="light"] .ai-message .message-content .code-block {
+    background: #0f172a !important;
+    color: #f8fafc !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+html[data-theme="light"] .ai-message .message-content .code-block * {
+    color: #f8fafc !important;
+}
+
+html[data-theme="light"] .ai-message .message-content .inline-code {
+    background: rgba(241, 245, 249, 0.9) !important;
+    color: #0284c7 !important;
+    border: 1px solid rgba(203, 213, 225, 0.6) !important;
+}
+
+html[data-theme="light"] .ai-message .message-content blockquote {
+    background: rgba(241, 245, 249, 0.8) !important;
+    border-left-color: #0284c7 !important;
+    color: #1e293b !important;
+}
+
+html[data-theme="light"] .ai-message .message-content table th,
+html[data-theme="light"] .ai-message .message-content table td {
+    border-color: rgba(203, 213, 225, 0.8) !important;
+    color: #1e293b !important;
+}
+
+html[data-theme="light"] .read-more-button {
+    color: #0284c7 !important;
+}
+
+html[data-theme="light"] .read-more-button:hover {
+    color: #0369a1 !important;
+}
+
+html[data-theme="light"] .copy-message-btn {
+    color: #64748b !important;
+}
+
+html[data-theme="light"] .copy-message-btn:hover {
+    background: rgba(255, 255, 255, 0.9) !important;
+    color: #0284c7 !important;
+}
+
+/* Typing indicator in light mode */
+html[data-theme="light"] #typingIndicator .message-content {
+    background: rgba(255, 255, 255, 0.8) !important;
+    border: 1px solid rgba(255, 255, 255, 0.9) !important;
+}
+
+html[data-theme="light"] .typing span {
+    background: #0284c7 !important;
+}
+
+/* ---- Input Area in Light Mode (Capsule Matching Screenshot) ---- */
+html[data-theme="light"] .input-box {
+    background: rgba(255, 255, 255, 0.72) !important;
+    backdrop-filter: blur(24px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.85) !important;
+    box-shadow: 0 8px 32px rgba(31, 38, 135, 0.08) !important;
+    border-radius: 32px !important;
+}
+
+html[data-theme="light"] .input-box:focus-within {
+    border-color: #0284c7 !important;
+    box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.2), 0 8px 32px rgba(31, 38, 135, 0.08) !important;
+}
+
+html[data-theme="light"] #promptInput {
+    color: #0f172a !important;
+    background: transparent !important;
+}
+
+html[data-theme="light"] #promptInput::placeholder {
+    color: #64748b !important;
+    opacity: 0.85 !important;
+}
+
+html[data-theme="light"] .send-button {
+    background: linear-gradient(135deg, #00d2ff, #2563eb, #7c3aed) !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 14px rgba(0, 210, 255, 0.35) !important;
+}
+
+html[data-theme="light"] .security-footer {
+    color: #475569 !important;
+}
+
+html[data-theme="light"] .security-footer i {
+    color: #10b981 !important;
+}
+
+/* ---- Modals & Overlays in Light Mode ---- */
+html[data-theme="light"] .modal-overlay {
+    background: rgba(15, 23, 42, 0.35) !important;
+    backdrop-filter: blur(14px) !important;
+    -webkit-backdrop-filter: blur(14px) !important;
+}
+
+html[data-theme="light"] .modal {
+    background: rgba(255, 255, 255, 0.92) !important;
+    backdrop-filter: blur(28px) !important;
+    -webkit-backdrop-filter: blur(28px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.95) !important;
+    box-shadow: 0 25px 60px rgba(31, 38, 135, 0.15) !important;
+    color: #0f172a !important;
+}
+
+html[data-theme="light"] .modal h1,
+html[data-theme="light"] .modal h2,
+html[data-theme="light"] .modal h3 {
+    color: #0f172a !important;
+}
+
+html[data-theme="light"] .closeModal {
+    color: #64748b !important;
+}
+
+html[data-theme="light"] .closeModal:hover {
+    color: #0f172a !important;
+}
+
+/* Search Modal */
+html[data-theme="light"] #searchInput {
+    background: rgba(255, 255, 255, 0.8) !important;
+    color: #0f172a !important;
+    border: 1px solid rgba(203, 213, 225, 0.8) !important;
+}
+
+html[data-theme="light"] #searchInput::placeholder {
+    color: #64748b !important;
+}
+
+html[data-theme="light"] .search-item {
+    background: rgba(241, 245, 249, 0.7) !important;
+    color: #0f172a !important;
+    border: 1px solid rgba(226, 232, 240, 0.8) !important;
+}
+
+html[data-theme="light"] .search-item:hover {
+    background: rgba(2, 132, 199, 0.1) !important;
+    color: #0284c7 !important;
+}
+
+/* Settings Modal */
+html[data-theme="light"] .settings-modal,
+html[data-theme="light"] .settings-window {
+    background: rgba(255, 255, 255, 0.95) !important;
+    color: #0f172a !important;
+}
+
+html[data-theme="light"] .settings-sidebar {
+    background: rgba(241, 245, 249, 0.8) !important;
+    border-right: 1px solid rgba(226, 232, 240, 0.8) !important;
+}
+
+html[data-theme="light"] .settings-heading {
+    color: #64748b !important;
+}
+
+html[data-theme="light"] .settings-tab {
+    color: #0f172a !important;
+}
+
+html[data-theme="light"] .settings-tab:hover {
+    background: rgba(2, 132, 199, 0.08) !important;
+    color: #0284c7 !important;
+}
+
+html[data-theme="light"] .settings-tab.active {
+    background: #0284c7 !important;
+    color: #ffffff !important;
+}
+
+html[data-theme="light"] .settings-content {
+    background: rgba(255, 255, 255, 0.95) !important;
+    color: #0f172a !important;
+}
+
+html[data-theme="light"] .settings-input,
+html[data-theme="light"] .settings-select {
+    background: rgba(241, 245, 249, 0.8) !important;
+    color: #0f172a !important;
+    border: 1px solid rgba(203, 213, 225, 0.8) !important;
+}
+
+html[data-theme="light"] .settings-input:focus,
+html[data-theme="light"] .settings-select:focus {
+    border-color: #0284c7 !important;
+}
+
+html[data-theme="light"] .settings-save-btn {
+    background: linear-gradient(135deg, #00d2ff, #2563eb) !important;
+    color: #ffffff !important;
+}
+
+html[data-theme="light"] .settings-save-btn:hover {
+    filter: brightness(1.08) !important;
+}
+
+html[data-theme="light"] .theme-option {
+    background: rgba(241, 245, 249, 0.8) !important;
+    color: #0f172a !important;
+    border: 1px solid rgba(203, 213, 225, 0.8) !important;
+}
+
+html[data-theme="light"] .theme-option.active {
+    border-color: #0284c7 !important;
+    background: rgba(2, 132, 199, 0.1) !important;
+    color: #0284c7 !important;
+}
+
+/* ---- Scrollbar at Extreme Right in Light Mode ---- */
+html[data-theme="light"] .chat-container::-webkit-scrollbar-track {
+    background: transparent !important;
+}
+
+html[data-theme="light"] .chat-container::-webkit-scrollbar-thumb {
+    background: rgba(203, 213, 225, 0.75) !important;
+    border-radius: 4px !important;
+}
+
+html[data-theme="light"] .chat-container::-webkit-scrollbar-thumb:hover {
+    background: #0284c7 !important;
+}
+
+/* ---- Light Mode Account Modal Specifics ---- */
+html[data-theme="light"] .account-avatar-banner {
+    background: rgba(255, 255, 255, 0.6) !important;
+    border-color: rgba(203, 213, 225, 0.8) !important;
+}
+
+html[data-theme="light"] .account-banner-details h3 {
+    color: #0f172a !important;
+}
+
+html[data-theme="light"] .account-detail-card {
+    background: rgba(255, 255, 255, 0.65) !important;
+    border-color: rgba(203, 213, 225, 0.8) !important;
+}
+
+html[data-theme="light"] .account-detail-card label {
+    color: #64748b !important;
+}
+
+html[data-theme="light"] .account-detail-card .detail-value {
+    color: #0f172a !important;
+}
+
+html[data-theme="light"] .account-detail-card .code-value {
+    color: #475569 !important;
+}
+
+html[data-theme="light"] .switch-card {
+    background: rgba(255, 255, 255, 0.6) !important;
+    border-color: rgba(203, 213, 225, 0.8) !important;
+}
+
+html[data-theme="light"] .switch-card h3 {
+    color: #0f172a !important;
+}
+
+html[data-theme="light"] .switch-card p {
+    color: #475569 !important;
+}
+
+html[data-theme="light"] .version-item {
+    background: rgba(255, 255, 255, 0.6) !important;
+    border-color: rgba(203, 213, 225, 0.8) !important;
+}
+
+html[data-theme="light"] .version-item-label {
+    color: #64748b !important;
+}
+
+html[data-theme="light"] .version-item-val {
+    color: #0f172a !important;
+}
+
+html[data-theme="light"] .version-header-box h2 {
+    color: #0f172a !important;
+}
+
+html[data-theme="light"] .section-header-box h3 {
+    color: #0f172a !important;
+}
+
+html[data-theme="light"] .section-subtitle {
+    color: #64748b !important;
+}
+
+html[data-theme="light"] .password-form label {
+    color: #0f172a !important;
+}
+
+html[data-theme="light"] .toggle-password-btn {
+    color: #64748b !important;
+}
+
+html[data-theme="light"] .toggle-password-btn:hover {
+    color: #0f172a !important;
+}
+
+/* ---- Auth Error Message in Light Mode ---- */
+html[data-theme="light"] .auth-error-message {
+    background: rgba(239, 68, 68, 0.08) !important;
+    border: 1px solid rgba(239, 68, 68, 0.3) !important;
+    color: #dc2626 !important;
+}
+
+html[data-theme="light"] .auth-error-message i {
+    color: #dc2626 !important;
+}
+
+/* ---- Official Eclipse Brand Logo in Light Mode ---- */
+html[data-theme="light"] .sidebar-brand-logo {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+html[data-theme="light"] .sidebar-brand-logo .eclipse-logo-img {
+    filter: drop-shadow(0 2px 10px rgba(99, 102, 241, 0.32)) drop-shadow(0 0 18px rgba(168, 85, 247, 0.2)) !important;
+}
+
+html[data-theme="light"] .sidebar-brand-logo:hover .eclipse-logo-img {
+    filter: drop-shadow(0 4px 14px rgba(99, 102, 241, 0.48)) drop-shadow(0 0 24px rgba(168, 85, 247, 0.32)) !important;
+}
+
+html[data-theme="light"] .welcome-brand-logo {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+html[data-theme="light"] .welcome-brand-logo::before {
+    background: radial-gradient(circle, rgba(99, 102, 241, 0.16) 0%, rgba(168, 85, 247, 0.09) 45%, transparent 72%) !important;
+}
+
+html[data-theme="light"] .welcome-brand-logo .eclipse-logo-img {
+    filter: drop-shadow(0 8px 24px rgba(99, 102, 241, 0.35)) drop-shadow(0 0 45px rgba(168, 85, 247, 0.22)) !important;
+}
+
+html[data-theme="light"] .welcome-brand-logo:hover .eclipse-logo-img {
+    filter: drop-shadow(0 12px 32px rgba(99, 102, 241, 0.5)) drop-shadow(0 0 58px rgba(168, 85, 247, 0.32)) !important;
+}
+
+html[data-theme="light"] .version-brand-logo {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+html[data-theme="light"] .version-brand-logo .eclipse-logo-img {
+    filter: drop-shadow(0 2px 8px rgba(99, 102, 241, 0.28)) drop-shadow(0 0 14px rgba(168, 85, 247, 0.16)) !important;
+}
+
+
+

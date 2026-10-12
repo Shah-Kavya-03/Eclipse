@@ -5,6 +5,8 @@ export default function ProfileDropdown({
     isOpen,
     onClose,
     onOpenAccount,
+    onOpenChangePassword,
+    onOpenSwitchAccount,
     onOpenSettings,
     onOpenLogout,
     anchorRef
@@ -53,7 +55,7 @@ export default function ProfileDropdown({
                 <div className="profile-avatar">
                     <i className="fa-solid fa-user"></i>
                 </div>
-                <div>
+                <div className="profile-user-info">
                     <h4 id="profileName">{currentUser ? currentUser.name : 'Guest User'}</h4>
                     <small id="profileEmail">
                         {currentUser ? currentUser.email : 'Not Signed In'}
@@ -62,6 +64,21 @@ export default function ProfileDropdown({
             </div>
 
             <div className="dropdown-divider"></div>
+
+            {currentUser?.is_admin && (
+                <button
+                    className="dropdown-item"
+                    id="adminDashboardBtn"
+                    style={{ color: '#8B7CFF', fontWeight: 600 }}
+                    onClick={() => {
+                        onClose();
+                        window.open('http://localhost:5174/admin', '_blank');
+                    }}
+                >
+                    <i className="fa-solid fa-shield-halved" style={{ color: '#8B7CFF' }}></i>
+                    Admin Dashboard
+                </button>
+            )}
 
             <button
                 className="dropdown-item"
@@ -86,6 +103,8 @@ export default function ProfileDropdown({
                 <i className="fa-solid fa-gear"></i>
                 Settings
             </button>
+
+            <div className="dropdown-divider"></div>
 
             <button
                 className="dropdown-item logout"

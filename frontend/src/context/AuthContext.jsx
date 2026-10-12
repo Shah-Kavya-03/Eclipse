@@ -46,6 +46,7 @@ function normalizeUser(data) {
         user_id,
         name: displayName,
         email,
+        is_admin: Boolean(src.is_admin ?? data?.is_admin),
     };
 }
 
@@ -97,7 +98,12 @@ export function AuthProvider({ children }) {
             if (!res.ok) {
                 const err = await res.json().catch(() => ({}));
                 showToast(err.detail || 'Login failed.', 'error');
-                return false;
+                return {
+                    success: false,
+                    status: res.status,
+                    errorType: res.status === 401 ? 'invalid_credentials' : 'server_error',
+                    detail: err.detail || 'Login failed.',
+                };
             }
             const data = await res.json();
             const user = normalizeUser(data);
@@ -105,14 +111,31 @@ export function AuthProvider({ children }) {
             if (onLogoutRef.current) {
                 onLogoutRef.current();
             }
+            const tok = data.token || data.access_token || data.auth_token || '';
             setCurrentUser(user);
-            setAuthToken(data.token || data.access_token || data.auth_token || '');
+            setAuthToken(tok);
+
+            if (user?.is_admin && tok) {
+                const sessionPayload = JSON.stringify({ token: tok, user });
+                document.cookie = `eclipse_admin_shared=${encodeURIComponent(sessionPayload)}; path=/; max-age=604800; SameSite=Lax`;
+            } else {
+                document.cookie = 'eclipse_admin_shared=; path=/; max-age=0; SameSite=Lax';
+            }
+
             showToast('Signed in successfully.', 'success');
-            return user;
+            return {
+                success: true,
+                user,
+            };
         } catch (err) {
             console.error('Login request failed:', err);
             showToast('Could not reach the server. Is the backend running?', 'error');
-            return false;
+            return {
+                success: false,
+                status: 0,
+                errorType: 'network_error',
+                detail: 'Could not reach the server. Is the backend running?',
+            };
         }
     };
 
@@ -130,8 +153,10 @@ export function AuthProvider({ children }) {
             if (onLogoutRef.current) {
                 onLogoutRef.current();
             }
+            const tok = data.token || data.access_token || data.auth_token || '';
             setCurrentUser(user);
-            setAuthToken(data.token || data.access_token || data.auth_token || '');
+            setAuthToken(tok);
+            document.cookie = 'eclipse_admin_shared=; path=/; max-age=0; SameSite=Lax';
             showToast('Account created.', 'success');
             return user;
         } catch (err) {
@@ -142,19 +167,31 @@ export function AuthProvider({ children }) {
     };
 
     const logout = async () => {
-        // Bug 2: clear conversation state immediately on logout
+        // Priority 1: Clear conversation state immediately on logout before any async calls
         if (onLogoutRef.current) {
-            onLogoutRef.current();
+            try {
+                onLogoutRef.current();
+            } catch (err) {
+                console.warn('Error clearing conversation state on logout:', err);
+            }
         }
+        // Immediately reset user session state in memory
+        setCurrentUser(null);
+        setAuthToken(null);
+
+        // Immediately purge user credentials and chat storage from localStorage
+        localStorage.removeItem('guardrailUser');
+        localStorage.removeItem('guardrailToken');
+        localStorage.removeItem('guardrailChats');
+        document.cookie = 'eclipse_admin_shared=; path=/; max-age=0; SameSite=Lax';
+
+        // Notify server without blocking immediate frontend state clearance
         try {
             await apiLogout();
         } catch (err) {
             console.warn('Logout request failed (clearing local session anyway):', err);
         }
-        setCurrentUser(null);
-        setAuthToken(null);
-        // Also clear user-specific localStorage entries
-        localStorage.removeItem('guardrailChats');
+
         showToast('Logged out.', 'success');
     };
 

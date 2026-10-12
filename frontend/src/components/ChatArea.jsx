@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useChat } from '../context/ChatContext';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
+import EclipseLogo from './EclipseLogo';
 
 export default function ChatArea({ onOpenLogin }) {
     const { currentUser } = useAuth();
@@ -53,7 +54,7 @@ export default function ChatArea({ onOpenLogin }) {
     return (
         <main className="main">
             <div className="top-right">
-                {!currentUser && (
+                {!currentUser && !hasMessages && (
                     <button
                         id="signInButton"
                         onClick={onOpenLogin}
@@ -68,18 +69,22 @@ export default function ChatArea({ onOpenLogin }) {
             {/* EMPTY STATE / WELCOME */}
             {!hasMessages ? (
                 <section className="welcome-screen" id="welcomeScreen">
-                    <div className="shield">
-                        <i className="fa-solid fa-shield-halved"></i>
-                    </div>
+                    <EclipseLogo className="welcome-brand-logo" alt="Eclipse" />
 
                     <h1
                         id="welcomeHeading"
                         style={{ userSelect: 'none' }}
                         draggable="false"
                     >
-                        {currentUser
-                            ? `Hey, ${currentUser.name} 👋`
-                            : 'Welcome to Eclipse, Your AI Guardrail'}
+                        {currentUser ? (
+                            <>
+                                Hey, <span className="welcome-name-gradient">{currentUser.name || currentUser.username}</span> 👋
+                            </>
+                        ) : (
+                            <>
+                                Welcome to <span className="welcome-name-gradient">Eclipse</span>, Your AI Guardrail
+                            </>
+                        )}
                     </h1>
 
                     <p
@@ -100,10 +105,12 @@ export default function ChatArea({ onOpenLogin }) {
                         id="chatContainer"
                         ref={chatContainerRef}
                     >
-                        {currentConversation.messages.map((msg, index) => (
-                            <ChatMessage key={index} message={msg} />
-                        ))}
-                        {isTyping && <ChatMessage isTypingIndicator />}
+                        <div className="chat-messages-inner">
+                            {currentConversation.messages.map((msg, index) => (
+                                <ChatMessage key={index} message={msg} />
+                            ))}
+                            {isTyping && <ChatMessage isTypingIndicator />}
+                        </div>
                     </section>
 
                     {/* Part C: Bottom fade overlay — sits above chat, below input.
@@ -115,8 +122,8 @@ export default function ChatArea({ onOpenLogin }) {
                 </div>
             )}
 
-            {/* INPUT — Part D: pass showSecurityFooter=false when chat is scrollable */}
-            <ChatInput showSecurityFooter={!showFade} />
+            {/* INPUT — security footer remains consistently visible */}
+            <ChatInput showSecurityFooter={true} />
         </main>
     );
 }
