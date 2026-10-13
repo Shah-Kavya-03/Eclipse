@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import logoDark from '../assets/eclipse-logo-dark-transparent.png';
-import logoLight from '../assets/eclipse-logo-light-transparent.png';
+import logoLight from '../assets/eclipse-updated-light.png';
 
 /**
  * Hook to reactively track the active theme across the application.

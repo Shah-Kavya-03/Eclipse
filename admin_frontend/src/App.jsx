@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { ThemeProvider } from './context/ThemeContext.jsx';
 import { AuthProvider, useAuth } from './context/AuthContext.jsx';
 import { ToastProvider } from './context/ToastContext.jsx';
 import { AdminLayout } from './components/layout/AdminLayout.jsx';
@@ -51,40 +52,42 @@ function ProtectedAdminRoute({ children }) {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <ToastProvider>
-          <Routes>
-            {/* Public Login Route */}
-            <Route path="/admin/login" element={<LoginPage />} />
+    <ThemeProvider>
+      <BrowserRouter>
+        <AuthProvider>
+          <ToastProvider>
+            <Routes>
+              {/* Public Login Route */}
+              <Route path="/admin/login" element={<LoginPage />} />
 
-            {/* Protected Admin Routes with Shared Layout */}
-            <Route
-              path="/admin"
-              element={
-                <ProtectedAdminRoute>
-                  <AdminLayout />
-                </ProtectedAdminRoute>
-              }
-            >
-              <Route index element={<OverviewPage />} />
-              <Route path="users" element={<UsersPage />} />
-              <Route path="conversations" element={<ConversationsPage />} />
-              <Route path="analytics" element={<AnalyticsPage />} />
-              <Route path="anomalies" element={<AnomaliesPage />} />
-              <Route path="logs" element={<LogsPage />} />
-              <Route path="reports" element={<ReportsPage />} />
-              <Route path="settings" element={<SettingsPage />} />
-              <Route path="system-health" element={<SystemHealthPage />} />
-              <Route path="account" element={<AccountPage />} />
-            </Route>
+              {/* Protected Admin Routes with Shared Layout */}
+              <Route
+                path="/admin"
+                element={
+                  <ProtectedAdminRoute>
+                    <AdminLayout />
+                  </ProtectedAdminRoute>
+                }
+              >
+                <Route index element={<OverviewPage />} />
+                <Route path="users" element={<UsersPage />} />
+                <Route path="conversations" element={<ConversationsPage />} />
+                <Route path="analytics" element={<AnalyticsPage />} />
+                <Route path="anomalies" element={<AnomaliesPage />} />
+                <Route path="logs" element={<LogsPage />} />
+                <Route path="reports" element={<ReportsPage />} />
+                <Route path="settings" element={<SettingsPage />} />
+                <Route path="system-health" element={<SystemHealthPage />} />
+                <Route path="account" element={<AccountPage />} />
+              </Route>
 
-            {/* Root & Fallback Redirects */}
-            <Route path="/" element={<Navigate to="/admin" replace />} />
-            <Route path="*" element={<Navigate to="/admin" replace />} />
-          </Routes>
-        </ToastProvider>
-      </AuthProvider>
-    </BrowserRouter>
+              {/* Root & Fallback Redirects */}
+              <Route path="/" element={<Navigate to="/admin" replace />} />
+              <Route path="*" element={<Navigate to="/admin" replace />} />
+            </Routes>
+          </ToastProvider>
+        </AuthProvider>
+      </BrowserRouter>
+    </ThemeProvider>
   );
 }

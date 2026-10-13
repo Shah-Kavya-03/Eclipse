@@ -690,5 +690,80 @@ html[data-theme="light"] .version-brand-logo .eclipse-logo-img {
     filter: drop-shadow(0 2px 8px rgba(99, 102, 241, 0.28)) drop-shadow(0 0 14px rgba(168, 85, 247, 0.16)) !important;
 }
 
+/* ---- Delete Chat Confirmation Modal (Light Mode) ---- */
+html[data-theme="light"] .delete-chat-modal {
+    background: rgba(255, 255, 255, 0.94) !important;
+    backdrop-filter: blur(28px) !important;
+    -webkit-backdrop-filter: blur(28px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.95) !important;
+    box-shadow: 0 25px 60px rgba(31, 38, 135, 0.15), 0 0 1px rgba(0, 0, 0, 0.1) !important;
+    color: #0f172a !important;
+}
+
+html[data-theme="light"] .delete-chat-modal .modal-header h2 {
+    color: #0f172a !important;
+}
+
+html[data-theme="light"] .delete-chat-modal .closeModal {
+    background: rgba(241, 245, 249, 0.8) !important;
+    border: 1px solid rgba(203, 213, 225, 0.7) !important;
+    color: #475569 !important;
+}
+
+html[data-theme="light"] .delete-chat-modal .closeModal:hover {
+    background: rgba(226, 232, 240, 0.95) !important;
+    color: #0f172a !important;
+}
+
+html[data-theme="light"] .delete-chat-icon-wrapper {
+    background: rgba(239, 68, 68, 0.08) !important;
+    border: 1px solid rgba(239, 68, 68, 0.2) !important;
+    color: #dc2626 !important;
+    box-shadow: 0 4px 16px rgba(239, 68, 68, 0.15) !important;
+}
+
+html[data-theme="light"] .delete-chat-text {
+    color: #475569 !important;
+}
+
+html[data-theme="light"] .delete-chat-target-title {
+    background: rgba(241, 245, 249, 0.8) !important;
+    border: 1px solid rgba(203, 213, 225, 0.7) !important;
+    color: #475569 !important;
+}
+
+html[data-theme="light"] .delete-chat-target-title i {
+    color: #dc2626 !important;
+}
+
+html[data-theme="light"] .delete-chat-title-text {
+    color: #0f172a !important;
+}
+
+html[data-theme="light"] .delete-chat-cancel-btn {
+    background: rgba(241, 245, 249, 0.85) !important;
+    border: 1px solid rgba(203, 213, 225, 0.8) !important;
+    color: #475569 !important;
+}
+
+html[data-theme="light"] .delete-chat-cancel-btn:hover:not(:disabled) {
+    background: rgba(226, 232, 240, 0.95) !important;
+    border-color: rgba(148, 163, 184, 0.7) !important;
+    color: #0f172a !important;
+}
+
+html[data-theme="light"] .delete-chat-confirm-btn {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
+    border: 1px solid rgba(220, 38, 38, 0.4) !important;
+    box-shadow: 0 4px 16px rgba(239, 68, 68, 0.25) !important;
+    color: #ffffff !important;
+}
+
+html[data-theme="light"] .delete-chat-confirm-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%) !important;
+    box-shadow: 0 6px 20px rgba(239, 68, 68, 0.35) !important;
+}
+
+
 
 

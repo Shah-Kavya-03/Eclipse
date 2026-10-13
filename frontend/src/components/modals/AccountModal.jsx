@@ -162,11 +162,6 @@ export default function AccountModal({
                             </div>
 
                             <div className="account-detail-card">
-                                <label>User Identifier</label>
-                                <div className="detail-value code-value">{currentUser?.user_id || 'guest_session'}</div>
-                            </div>
-
-                            <div className="account-detail-card">
                                 <label>Security Status</label>
                                 <div className="detail-value status-active">
                                     <i className="fa-solid fa-circle-check"></i> Active & Protected by Eclipse Guardrail
@@ -291,10 +286,6 @@ export default function AccountModal({
                                 <i className="fa-solid fa-right-left"></i>
                             </div>
                             <h3>Switch Account</h3>
-                            <p>
-                                Switching accounts will securely end your current active session for{' '}
-                                <strong>{currentUser ? currentUser.name : 'your profile'}</strong> and open the sign-in modal so you can log into another account.
-                            </p>
                             <p className="switch-note">
                                 <i className="fa-solid fa-circle-info"></i> Your saved conversation history and settings remain safe and linked to this account in the database.
                             </p>

@@ -340,14 +340,6 @@ export default function SettingsModal({ isOpen, onClose }) {
                 return <ClearHistoryTab />;
             case 'theme':
                 return <ThemeTab />;
-            case 'accent':
-                return (
-                    <div className="settings-placeholder">
-                        <i className="fa-solid fa-palette"></i>
-                        <h2>Accent Colour</h2>
-                        <p>This section is under development.</p>
-                    </div>
-                );
             default:
                 return null;
         }
@@ -403,13 +395,6 @@ export default function SettingsModal({ isOpen, onClose }) {
                             onClick={() => setActiveTab('theme')}
                         >
                             Theme
-                        </button>
-
-                        <button
-                            className={`settings-tab ${activeTab === 'accent' ? 'active' : ''}`}
-                            onClick={() => setActiveTab('accent')}
-                        >
-                            Accent Colour
                         </button>
                     </div>
 

@@ -97,7 +97,6 @@ export function AuthProvider({ children }) {
             const res = await apiLogin(email, password);
             if (!res.ok) {
                 const err = await res.json().catch(() => ({}));
-                showToast(err.detail || 'Login failed.', 'error');
                 return {
                     success: false,
                     status: res.status,
@@ -129,7 +128,6 @@ export function AuthProvider({ children }) {
             };
         } catch (err) {
             console.error('Login request failed:', err);
-            showToast('Could not reach the server. Is the backend running?', 'error');
             return {
                 success: false,
                 status: 0,

@@ -12,13 +12,14 @@ import SignupModal from './components/modals/SignupModal';
 import AccountModal from './components/modals/AccountModal';
 import SettingsModal from './components/modals/SettingsModal';
 import LogoutModal from './components/modals/LogoutModal';
+import DeleteChatModal from './components/modals/DeleteChatModal';
 import './css/style.css';
 import './css/audit.css';
 import './css/light-theme.css';
 
 export default function App() {
     const { currentUser, logout } = useAuth();
-    const { openConversation, renameConversation, refreshConversationsFromBackend } = useChat();
+    const { openConversation, renameConversation, deleteConversation, refreshConversationsFromBackend } = useChat();
 
     // Navigation: 'chat' | 'audit'
     const [currentPage, setCurrentPage] = useState(() => {
@@ -35,6 +36,7 @@ export default function App() {
     // Modals state
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [renameState, setRenameState] = useState({ isOpen: false, chat: null });
+    const [deleteState, setDeleteState] = useState({ isOpen: false, chat: null });
     const [isLoginOpen, setIsLoginOpen] = useState(false);
     const [isSignupOpen, setIsSignupOpen] = useState(false);
     const [isAccountOpen, setIsAccountOpen] = useState(false);
@@ -145,6 +147,7 @@ export default function App() {
                 onNavigate={navigateTo}
                 onOpenSearch={() => setIsSearchOpen(true)}
                 onOpenRename={(chat) => setRenameState({ isOpen: true, chat })}
+                onOpenDelete={(chat) => setDeleteState({ isOpen: true, chat })}
                 onOpenLogin={() => setIsLoginOpen(true)}
                 onToggleProfileDropdown={() =>
                     setIsProfileDropdownOpen(!isProfileDropdownOpen)
@@ -188,6 +191,13 @@ export default function App() {
                 initialTitle={renameState.chat?.title || ''}
                 onSave={handleSaveRename}
                 onClose={() => setRenameState({ isOpen: false, chat: null })}
+            />
+
+            <DeleteChatModal
+                isOpen={deleteState.isOpen}
+                chat={deleteState.chat}
+                onConfirm={deleteConversation}
+                onClose={() => setDeleteState({ isOpen: false, chat: null })}
             />
 
             <LoginModal

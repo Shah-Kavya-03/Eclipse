@@ -325,19 +325,33 @@ export function ChatProvider({ children }) {
 
     const deleteConversation = useCallback(
         async (id) => {
+            if (currentUser?.user_id) {
+                try {
+                    const res = await apiDeleteConversation(id);
+                    if (res && !res.ok && res.status !== 404) {
+                        throw new Error(`Delete failed with status ${res.status}`);
+                    }
+                } catch (err) {
+                    console.error('Backend delete failed:', err);
+                    showToast('Failed to delete conversation. Please try again.', 'error');
+                    return false;
+                }
+            } else {
+                try {
+                    await apiDeleteConversation(id);
+                } catch (err) {
+                    // Ignore for local/guest conversation deletion failure
+                }
+            }
+
             setConversations((prev) => prev.filter((c) => String(c.id) !== String(id)));
             if (String(currentConversationId) === String(id)) {
                 setCurrentConversationId(null);
             }
             showToast('Chat deleted', 'success');
-
-            try {
-                await apiDeleteConversation(id);
-            } catch (err) {
-                console.warn('Backend delete failed (chat still removed locally):', err);
-            }
+            return true;
         },
-        [currentConversationId, showToast]
+        [currentUser, currentConversationId, showToast]
     );
 
     /**

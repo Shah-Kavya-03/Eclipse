@@ -10,6 +10,7 @@ export default function Sidebar({
     onNavigate,
     onOpenSearch,
     onOpenRename,
+    onOpenDelete,
     onOpenLogin,
     onToggleProfileDropdown,
     profileBtnRef
@@ -258,7 +259,11 @@ export default function Sidebar({
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             setActiveMenuId(null);
-                                            deleteConversation(chat.id);
+                                            if (onOpenDelete) {
+                                                onOpenDelete(chat);
+                                            } else {
+                                                deleteConversation(chat.id);
+                                            }
                                         }}
                                     >
                                         <i className="fa-solid fa-trash"></i>

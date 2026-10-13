@@ -6,6 +6,7 @@ import {
 import { settingsApi } from '../api/settingsApi.js';
 import { usersApi } from '../api/usersApi.js';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useTheme } from '../context/ThemeContext.jsx';
 import { ConfirmModal } from '../components/ui/Modal.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 
@@ -14,6 +15,7 @@ const DEFAULT_PROVIDERS = ['gemini', 'groq', 'cerebras', 'nvidia', 'mistral'];
 export function SettingsPage() {
   const { user } = useAuth();
   const currentUserId = user?.user_id || '';
+  const { themePreference, resolvedTheme, setThemePreference } = useTheme();
 
   const [users, setUsers] = useState([]);
   const [targetUserId, setTargetUserId] = useState(currentUserId);
@@ -21,7 +23,7 @@ export function SettingsPage() {
   const [saving, setSaving] = useState(false);
 
   // Settings values
-  const [theme, setTheme] = useState('dark');
+  const [theme, setTheme] = useState(themePreference);
   const [providers, setProviders] = useState(DEFAULT_PROVIDERS);
   const [streamResponse, setStreamResponse] = useState(true);
   const [saveHistory, setSaveHistory] = useState(true);
@@ -60,7 +62,16 @@ export function SettingsPage() {
     try {
       const data = await settingsApi.getSettings(targetUserId);
       if (data) {
-        setTheme(data.theme || 'dark');
+        if (targetUserId === currentUserId) {
+          if (data.theme && (data.theme === 'light' || data.theme === 'dark' || data.theme === 'system')) {
+            setTheme(data.theme);
+            setThemePreference(data.theme);
+          } else {
+            setTheme(themePreference);
+          }
+        } else {
+          setTheme(data.theme || 'dark');
+        }
         setStreamResponse(data.stream_response ?? true);
         setSaveHistory(data.save_history ?? true);
 
@@ -321,11 +332,16 @@ export function SettingsPage() {
               </div>
               <div className="card-body">
                 <div className="form-group">
-                  <label className="form-label">Theme Mode</label>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <label className="form-label" style={{ marginBottom: 0 }}>Theme Mode</label>
+                    <span className="badge badge-secondary" style={{ textTransform: 'capitalize' }}>
+                      Active: {resolvedTheme}
+                    </span>
+                  </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
                     {[
-                      { id: 'dark', label: 'Dark Mode', icon: Moon },
-                      { id: 'light', label: 'Light Mode', icon: Sun },
+                      { id: 'light', label: 'Light', icon: Sun },
+                      { id: 'dark', label: 'Dark', icon: Moon },
                       { id: 'system', label: 'System Default', icon: Laptop },
                     ].map((item) => {
                       const Icon = item.icon;
@@ -334,15 +350,45 @@ export function SettingsPage() {
                         <button
                           key={item.id}
                           type="button"
-                          className={`btn ${active ? 'btn-primary' : 'btn-secondary'}`}
-                          style={{ padding: '14px 10px', flexDirection: 'column', gap: 6 }}
-                          onClick={() => setTheme(item.id)}
+                          className={`btn ${active ? 'btn-primary' : 'btn-secondary'} theme-mode-btn`}
+                          style={{
+                            padding: '14px 10px',
+                            flexDirection: 'column',
+                            gap: 6,
+                            position: 'relative',
+                            boxShadow: active ? 'var(--shadow-glow)' : 'none',
+                          }}
+                          onClick={() => {
+                            setTheme(item.id);
+                            setThemePreference(item.id);
+                          }}
+                          aria-pressed={active}
                         >
                           <Icon size={18} />
-                          <span style={{ fontSize: '0.75rem' }}>{item.label}</span>
+                          <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>{item.label}</span>
+                          {active && (
+                            <span
+                              style={{
+                                position: 'absolute',
+                                top: 6,
+                                right: 6,
+                                width: 6,
+                                height: 6,
+                                borderRadius: '50%',
+                                background: 'currentColor',
+                              }}
+                            />
+                          )}
                         </button>
                       );
                     })}
+                  </div>
+                  <div className="form-hint" style={{ marginTop: 8 }}>
+                    {theme === 'system'
+                      ? `System Default automatically synchronizes with your device preferences (${resolvedTheme.toUpperCase()} mode is currently active).`
+                      : theme === 'light'
+                      ? 'Light theme applies a crisp, high-contrast luminous appearance across all pages and widgets.'
+                      : 'Dark theme applies a deep dark-slate security dashboard appearance across all pages and widgets.'}
                   </div>
                 </div>
               </div>
