@@ -2,7 +2,7 @@
    AUDIT LOGS
 ========================================== */
 
-const API_BASE = "http://localhost:8000";
+const API_BASE = "http://localhost:8001";
 
 let auditLogs = [];      // audit_logs entries -> the table + summary cards
 let sidebarChats = [];   // real conversations -> the sidebar
@@ -22,10 +22,10 @@ const modifiedResponses = document.getElementById("modifiedResponses");
  * badges consistent with the chat page's status vocabulary
  * (Protected / Blocked / Modified).
  */
-function mapBackendStatus(status){
+function mapBackendStatus(status) {
 
-    if(status === "PII Detected") return "Modified";
-    if(status === "Safe") return "Protected";
+    if (status === "PII Detected") return "Modified";
+    if (status === "Safe") return "Protected";
     return "Blocked";
 
 }
@@ -39,35 +39,35 @@ function mapBackendStatus(status){
 
 let currentUser = null;
 
-function loadAuthState(){
+function loadAuthState() {
 
     const user = localStorage.getItem("guardrailUser");
 
-    if(user){
-        try{
+    if (user) {
+        try {
             currentUser = JSON.parse(user);
-        }catch{
+        } catch {
             currentUser = null;
         }
     }
 
 }
 
-function updateProfileUI(){
+function updateProfileUI() {
 
     const usernameEl = document.getElementById("auditUsername");
     const subEl = document.getElementById("auditUserSub");
     const logoutBtn = document.getElementById("auditLogoutBtn");
 
-    if(!usernameEl) return;
+    if (!usernameEl) return;
 
-    if(currentUser){
+    if (currentUser) {
 
         usernameEl.textContent = currentUser.name;
         subEl.textContent = currentUser.email;
         logoutBtn.style.display = "inline-flex";
 
-    }else{
+    } else {
 
         usernameEl.textContent = "Log In";
         subEl.textContent = "Guest User";
@@ -79,13 +79,13 @@ function updateProfileUI(){
 
 const profileArea = document.getElementById("profileArea");
 
-if(profileArea){
+if (profileArea) {
 
     profileArea.addEventListener("click", (e) => {
 
-        if(e.target.closest("#auditLogoutBtn")) return; // handled separately
+        if (e.target.closest("#auditLogoutBtn")) return; // handled separately
 
-        if(!currentUser){
+        if (!currentUser) {
             // audit.html has no login modal of its own — reuse
             // index.html's, opened automatically via ?auth=login
             window.location.href = "index.html?auth=login";
@@ -97,15 +97,15 @@ if(profileArea){
 
 const auditLogoutBtn = document.getElementById("auditLogoutBtn");
 
-if(auditLogoutBtn){
+if (auditLogoutBtn) {
 
     auditLogoutBtn.addEventListener("click", async (e) => {
 
         e.stopPropagation();
 
-        try{
+        try {
             await fetch(`${API_BASE}/auth/logout`, { method: "POST" });
-        }catch(err){
+        } catch (err) {
             console.warn("Logout request failed (clearing local session anyway):", err);
         }
 
@@ -125,9 +125,9 @@ if(auditLogoutBtn){
    LOAD DATA (from backend, not localStorage)
 ========================================== */
 
-async function loadLogs(){
+async function loadLogs() {
 
-    try{
+    try {
 
         const res = await fetch(`${API_BASE}/logs`);
         const data = await res.json();
@@ -139,7 +139,7 @@ async function loadLogs(){
             status: mapBackendStatus(log.status)
         }));
 
-    }catch(err){
+    } catch (err) {
 
         console.error("Failed to load audit logs:", err);
         auditLogs = [];
@@ -148,9 +148,9 @@ async function loadLogs(){
 
 }
 
-async function loadDashboardStats(){
+async function loadDashboardStats() {
 
-    try{
+    try {
 
         const res = await fetch(`${API_BASE}/dashboard-stats`);
         const stats = await res.json();
@@ -160,7 +160,7 @@ async function loadDashboardStats(){
         blockedRequests.textContent = stats.blocked ?? 0;
         modifiedResponses.textContent = stats.pii_detected ?? 0;
 
-    }catch(err){
+    } catch (err) {
 
         console.error("Failed to load dashboard stats:", err);
 
@@ -173,13 +173,13 @@ async function loadDashboardStats(){
    audit log entries — matches index.html)
 ========================================== */
 
-async function loadSidebarChats(){
+async function loadSidebarChats() {
 
     const recentChatsEl = document.getElementById("recentChats");
 
-    if(!recentChatsEl) return;
+    if (!recentChatsEl) return;
 
-    if(!currentUser?.user_id){
+    if (!currentUser?.user_id) {
 
         // Guests don't have a backend-scoped chat list on this page
         // either (see script.js's note on shared "guest" user_id) —
@@ -196,14 +196,14 @@ async function loadSidebarChats(){
 
     }
 
-    try{
+    try {
 
         const res = await fetch(`${API_BASE}/conversations?user_id=${encodeURIComponent(currentUser.user_id)}`);
         const data = await res.json();
 
         sidebarChats = data.conversations || [];
 
-    }catch(err){
+    } catch (err) {
 
         console.error("Failed to load conversations:", err);
         sidebarChats = [];
@@ -214,17 +214,17 @@ async function loadSidebarChats(){
 
 }
 
-function renderRecentChats(){
+function renderRecentChats() {
 
     const recentChatsEl = document.getElementById("recentChats");
 
-    if(!recentChatsEl) return;
+    if (!recentChatsEl) return;
 
     recentChatsEl.innerHTML = "";
 
-    if(sidebarChats.length === 0){
+    if (sidebarChats.length === 0) {
 
-        if(currentUser?.user_id){
+        if (currentUser?.user_id) {
             recentChatsEl.innerHTML = `
                 <div class="empty-recents">
                     No recent chats yet.
@@ -261,7 +261,7 @@ function renderRecentChats(){
 
 }
 
-function escapeHTML(str){
+function escapeHTML(str) {
 
     const div = document.createElement("div");
     div.textContent = str ?? "";
@@ -273,11 +273,11 @@ function escapeHTML(str){
    TABLE
 ========================================== */
 
-function renderAuditTable(data = auditLogs){
+function renderAuditTable(data = auditLogs) {
 
     tableBody.innerHTML = "";
 
-    if(data.length === 0){
+    if (data.length === 0) {
 
         emptyState.style.display = "flex";
 
@@ -287,7 +287,7 @@ function renderAuditTable(data = auditLogs){
 
     emptyState.style.display = "none";
 
-    data.forEach(chat=>{
+    data.forEach(chat => {
 
         const row = document.createElement("tr");
 
@@ -302,8 +302,8 @@ function renderAuditTable(data = auditLogs){
             <td>
 
                 <span class="status ${(
-                    chat.status || "Protected"
-                ).toLowerCase()}">
+                chat.status || "Protected"
+            ).toLowerCase()}">
 
                     ${chat.status || "Protected"}
 
@@ -323,13 +323,13 @@ function renderAuditTable(data = auditLogs){
    SEARCH
 ========================================== */
 
-if(searchInput){
+if (searchInput) {
 
-    searchInput.addEventListener("input",()=>{
+    searchInput.addEventListener("input", () => {
 
         const value = searchInput.value.trim().toLowerCase();
 
-        const filtered = auditLogs.filter(chat=>{
+        const filtered = auditLogs.filter(chat => {
 
             return (
 
@@ -361,7 +361,7 @@ if(searchInput){
    LOAD PAGE
 ========================================== */
 
-async function loadAuditPage(){
+async function loadAuditPage() {
 
     loadAuthState();
     updateProfileUI();
@@ -379,9 +379,9 @@ window.addEventListener("load", loadAuditPage);
 
 window.addEventListener("focus", loadAuditPage);
 
-document.addEventListener("visibilitychange",()=>{
+document.addEventListener("visibilitychange", () => {
 
-    if(!document.hidden){
+    if (!document.hidden) {
 
         loadAuditPage();
 

@@ -1,5 +1,5 @@
 
-const API_BASE = "http://localhost:8000";
+const API_BASE = "http://localhost:8001";
 
 /**
  * Maps a backend threat_tier status to the frontend's existing
@@ -8,10 +8,10 @@ const API_BASE = "http://localhost:8000";
  * This matches the status vocabulary already used throughout
  * script.js/audit.js/audit.css — no new states introduced.
  */
-function mapBackendStatus(status){
+function mapBackendStatus(status) {
 
-    if(status === "PII Detected") return "Modified";
-    if(status === "Safe") return "Protected";
+    if (status === "PII Detected") return "Modified";
+    if (status === "Safe") return "Protected";
     // Prompt Injection, Harmful, Jailbreak, Rate Limited all read as Blocked
     return "Blocked";
 
@@ -90,13 +90,13 @@ toggleSidebar.addEventListener("click", () => {
 
 });
 
-function openModal(modal){
+function openModal(modal) {
 
     modal.classList.add("active");
 
 }
 
-function closeModal(modal){
+function closeModal(modal) {
 
     modal.classList.remove("active");
 
@@ -110,11 +110,11 @@ signInButton.addEventListener("click", () => {
 
 profileBtn.addEventListener("click", () => {
 
-    if(currentUser){
+    if (currentUser) {
 
         profileDropdown.classList.toggle("active");
 
-    }else{
+    } else {
 
         openModal(loginOverlay);
 
@@ -122,7 +122,7 @@ profileBtn.addEventListener("click", () => {
 
 });
 
-searchBtn.addEventListener("click",(e)=>{
+searchBtn.addEventListener("click", (e) => {
 
     e.preventDefault();
 
@@ -132,13 +132,13 @@ searchBtn.addEventListener("click",(e)=>{
 
 });
 
-closeButtons.forEach(btn=>{
+closeButtons.forEach(btn => {
 
     btn.addEventListener("click", () => {
 
         const modal = btn.closest(".modal-overlay");
 
-        if(modal){
+        if (modal) {
 
             closeModal(modal);
 
@@ -186,21 +186,21 @@ passwordToggles.forEach(toggle => {
 
 });
 
-window.addEventListener("click",(e)=>{
+window.addEventListener("click", (e) => {
 
-    if(e.target===loginOverlay){
+    if (e.target === loginOverlay) {
 
         closeModal(loginOverlay);
 
     }
 
-    if(e.target===signupOverlay){
+    if (e.target === signupOverlay) {
 
         closeModal(signupOverlay);
 
     }
 
-    if(e.target===searchOverlay){
+    if (e.target === searchOverlay) {
 
         closeModal(searchOverlay);
 
@@ -208,7 +208,7 @@ window.addEventListener("click",(e)=>{
 
 });
 
-openSignup.addEventListener("click",(e)=>{
+openSignup.addEventListener("click", (e) => {
 
     e.preventDefault();
 
@@ -218,7 +218,7 @@ openSignup.addEventListener("click",(e)=>{
 
 });
 
-backToLogin.addEventListener("click",(e)=>{
+backToLogin.addEventListener("click", (e) => {
 
     e.preventDefault();
 
@@ -228,14 +228,14 @@ backToLogin.addEventListener("click",(e)=>{
 
 });
 
-loginForm.addEventListener("submit", async (e)=>{
+loginForm.addEventListener("submit", async (e) => {
 
     e.preventDefault();
 
     const email = loginForm.querySelector('input[type="email"]').value;
     const password = loginForm.querySelector('input[type="password"]').value;
 
-    try{
+    try {
 
         const res = await fetch(`${API_BASE}/auth/login`, {
             method: "POST",
@@ -243,7 +243,7 @@ loginForm.addEventListener("submit", async (e)=>{
             body: JSON.stringify({ email, password })
         });
 
-        if(!res.ok){
+        if (!res.ok) {
             const err = await res.json().catch(() => ({}));
             toast(err.detail || "Login failed.", "error");
             return;
@@ -268,9 +268,9 @@ loginForm.addEventListener("submit", async (e)=>{
         closeModal(loginOverlay);
         loginForm.reset();
 
-        toast("Signed in successfully.","success");
+        toast("Signed in successfully.", "success");
 
-    }catch(err){
+    } catch (err) {
 
         console.error("Login request failed:", err);
         toast("Could not reach the server. Is the backend running?", "error");
@@ -279,7 +279,7 @@ loginForm.addEventListener("submit", async (e)=>{
 
 });
 
-signupForm.addEventListener("submit", async (e)=>{
+signupForm.addEventListener("submit", async (e) => {
 
     e.preventDefault();
 
@@ -289,12 +289,12 @@ signupForm.addEventListener("submit", async (e)=>{
     const password = passwordInputs[0].value;
     const confirmPassword = passwordInputs[1].value;
 
-    if(password !== confirmPassword){
+    if (password !== confirmPassword) {
         toast("Passwords do not match.", "error");
         return;
     }
 
-    try{
+    try {
 
         const res = await fetch(`${API_BASE}/auth/signup`, {
             method: "POST",
@@ -302,7 +302,7 @@ signupForm.addEventListener("submit", async (e)=>{
             body: JSON.stringify({ name, email, password })
         });
 
-        if(!res.ok){
+        if (!res.ok) {
             const err = await res.json().catch(() => ({}));
             toast(err.detail || "Signup failed.", "error");
             return;
@@ -327,9 +327,9 @@ signupForm.addEventListener("submit", async (e)=>{
         closeModal(signupOverlay);
         signupForm.reset();
 
-        toast("Account created.","success");
+        toast("Account created.", "success");
 
-    }catch(err){
+    } catch (err) {
 
         console.error("Signup request failed:", err);
         toast("Could not reach the server. Is the backend running?", "error");
@@ -338,28 +338,28 @@ signupForm.addEventListener("submit", async (e)=>{
 
 });
 
-logoutButton.addEventListener("click", async ()=>{
+logoutButton.addEventListener("click", async () => {
 
     await performLogout();
 
-    toast("Logged out.","success");
+    toast("Logged out.", "success");
 
 });
 
-async function performLogout(){
+async function performLogout() {
 
-    try{
+    try {
         await fetch(`${API_BASE}/auth/logout`, { method: "POST" });
-    }catch(err){
+    } catch (err) {
         // Logout is stateless server-side (see auth.py) — a failed
         // network call here doesn't block clearing local state.
         console.warn("Logout request failed (clearing local session anyway):", err);
     }
 
-    currentUser=null;
-    authToken=null;
-    conversations=[];
-    currentConversation=null;
+    currentUser = null;
+    authToken = null;
+    conversations = [];
+    currentConversation = null;
 
     chatContainer.innerHTML = "";
     chatContainer.classList.remove("active");
@@ -375,75 +375,75 @@ async function performLogout(){
 
 }
 
-function updateUserUI(){
+function updateUserUI() {
 
-    if(currentUser){
+    if (currentUser) {
 
-        usernameText.textContent=currentUser.name;
+        usernameText.textContent = currentUser.name;
 
-        profileName.textContent=currentUser.name;
+        profileName.textContent = currentUser.name;
 
-        profileEmail.textContent=currentUser.email;
+        profileEmail.textContent = currentUser.email;
 
-        welcomeHeading.textContent=`Hey, ${currentUser.name} 👋`;
+        welcomeHeading.textContent = `Hey, ${currentUser.name} 👋`;
 
-        welcomeText.textContent="How can I help you today?";
+        welcomeText.textContent = "How can I help you today?";
 
-        signInButton.style.display="none";
+        signInButton.style.display = "none";
 
-    }else{
+    } else {
 
-        usernameText.textContent="Log In";
+        usernameText.textContent = "Log In";
 
-        profileName.textContent="Guest User";
+        profileName.textContent = "Guest User";
 
-        profileEmail.textContent="Not Signed In";
+        profileEmail.textContent = "Not Signed In";
 
-        welcomeHeading.textContent="Welcome to AI Guardrail";
+        welcomeHeading.textContent = "Welcome to AI Guardrail";
 
-        welcomeText.textContent="Your prompts are automatically protected against prompt injection, sensitive information leakage, and unsafe AI responses.";
+        welcomeText.textContent = "Your prompts are automatically protected against prompt injection, sensitive information leakage, and unsafe AI responses.";
 
-        signInButton.style.display="block";
-
-    }
-
-}
-
-function loadData(){
-
-    const user=localStorage.getItem("guardrailUser");
-
-    const token=localStorage.getItem("guardrailToken");
-
-    const chats=localStorage.getItem("guardrailChats");
-
-    if(user){
-
-        currentUser=JSON.parse(user);
-
-    }
-
-    if(token){
-
-        authToken=token;
-
-    }
-
-    if(chats){
-
-        conversations=JSON.parse(chats);
+        signInButton.style.display = "block";
 
     }
 
 }
 
-function saveData(){
+function loadData() {
 
-    localStorage.setItem("guardrailUser",JSON.stringify(currentUser));
+    const user = localStorage.getItem("guardrailUser");
+
+    const token = localStorage.getItem("guardrailToken");
+
+    const chats = localStorage.getItem("guardrailChats");
+
+    if (user) {
+
+        currentUser = JSON.parse(user);
+
+    }
+
+    if (token) {
+
+        authToken = token;
+
+    }
+
+    if (chats) {
+
+        conversations = JSON.parse(chats);
+
+    }
+
+}
+
+function saveData() {
+
+    localStorage.setItem("guardrailUser", JSON.stringify(currentUser));
 
     localStorage.setItem("guardrailToken", authToken || "");
 
-    localStorage.setItem("guardrailChats",JSON.stringify(conversations));
+    localStorage.setItem("guardrailChats", JSON.stringify(conversations));
 
 }
 
@@ -643,53 +643,53 @@ function sendToBackend(typingEl) {
             user_id: currentUser?.user_id || "guest"
         })
     })
-    .then(res => res.json())
-    .then(data => {
+        .then(res => res.json())
+        .then(data => {
 
-        typingEl.remove();
+            typingEl.remove();
 
-        const displayStatus = mapBackendStatus(data.status);
+            const displayStatus = mapBackendStatus(data.status);
 
-        // Blocked/rate-limited requests: show the explanation instead
-        // of a null response.
-        const replyText = data.response
-            ? data.response
-            : (data.blocked_reason || data.lime_explanation || "Your message could not be processed.");
+            // Blocked/rate-limited requests: show the explanation instead
+            // of a null response.
+            const replyText = data.response
+                ? data.response
+                : (data.blocked_reason || data.lime_explanation || "Your message could not be processed.");
 
-        currentConversation.messages.push({
-            sender: "ai",
-            text: replyText
+            currentConversation.messages.push({
+                sender: "ai",
+                text: replyText
+            });
+
+            addMessage("ai", replyText);
+
+            currentConversation.status = displayStatus;
+            currentConversation.model = data.model_used || currentConversation.model;
+            currentConversation.lastLimeExplanation = data.lime_explanation;
+
+            saveData();
+            renderAuditLogs();
+
+        })
+        .catch(err => {
+
+            typingEl.remove();
+
+            const errorText = "Could not reach the guardrail backend. Is the server running?";
+
+            currentConversation.messages.push({
+                sender: "ai",
+                text: errorText
+            });
+
+            addMessage("ai", errorText);
+
+            console.error("Chat request failed:", err);
+
+            saveData();
+            renderAuditLogs();
+
         });
-
-        addMessage("ai", replyText);
-
-        currentConversation.status = displayStatus;
-        currentConversation.model = data.model_used || currentConversation.model;
-        currentConversation.lastLimeExplanation = data.lime_explanation;
-
-        saveData();
-        renderAuditLogs();
-
-    })
-    .catch(err => {
-
-        typingEl.remove();
-
-        const errorText = "Could not reach the guardrail backend. Is the server running?";
-
-        currentConversation.messages.push({
-            sender: "ai",
-            text: errorText
-        });
-
-        addMessage("ai", errorText);
-
-        console.error("Chat request failed:", err);
-
-        saveData();
-        renderAuditLogs();
-
-    });
 
 }
 
@@ -704,13 +704,13 @@ function sendToBackend(typingEl) {
    aren't meaningfully scoped to one browser)
 ========================================== */
 
-async function refreshConversationsFromBackend(){
+async function refreshConversationsFromBackend() {
 
-    if(!currentUser?.user_id){
+    if (!currentUser?.user_id) {
         return;
     }
 
-    try{
+    try {
 
         const res = await fetch(`${API_BASE}/conversations?user_id=${encodeURIComponent(currentUser.user_id)}`);
         const data = await res.json();
@@ -727,7 +727,7 @@ async function refreshConversationsFromBackend(){
 
         renderRecentChats();
 
-    }catch(err){
+    } catch (err) {
 
         console.error("Failed to load conversations:", err);
 
@@ -981,9 +981,9 @@ function renderRecentChats() {
 
             toast(
 
-                chat.pinned 
-                ? "Chat pinned 📌" 
-                : "Chat unpinned",
+                chat.pinned
+                    ? "Chat pinned 📌"
+                    : "Chat unpinned",
 
                 "success"
 
@@ -1030,11 +1030,11 @@ function renderRecentChats() {
 
             );
 
-            try{
+            try {
                 await fetch(`${API_BASE}/conversations/${encodeURIComponent(chat.id)}`, {
                     method: "DELETE"
                 });
-            }catch(err){
+            } catch (err) {
                 console.warn("Backend delete failed (chat still removed locally):", err);
             }
 
@@ -1098,7 +1098,7 @@ async function openConversation(id) {
     // fetch the full history the first time this chat is opened.
     if (chat.loaded === false) {
 
-        try{
+        try {
 
             const res = await fetch(`${API_BASE}/conversations/${encodeURIComponent(id)}`);
             const data = await res.json();
@@ -1109,7 +1109,7 @@ async function openConversation(id) {
             }));
             chat.loaded = true;
 
-        }catch(err){
+        } catch (err) {
 
             console.error("Failed to load conversation history:", err);
 
@@ -1137,17 +1137,17 @@ renderRecentChats();
  *   index.html?auth=login   -> auto-opens the sign-in modal
  *   index.html?open=<id>    -> auto-opens that specific conversation
  */
-(async function handleEntryParams(){
+(async function handleEntryParams() {
 
     const params = new URLSearchParams(window.location.search);
 
-    if(currentUser?.user_id){
+    if (currentUser?.user_id) {
 
         await refreshConversationsFromBackend();
 
     }
 
-    if(params.get("auth") === "login" && !currentUser){
+    if (params.get("auth") === "login" && !currentUser) {
 
         openModal(loginOverlay);
 
@@ -1155,21 +1155,21 @@ renderRecentChats();
 
     const openId = params.get("open");
 
-    if(openId){
+    if (openId) {
 
         // Guests: the chat may already be in local `conversations`.
         // Logged-in users: refreshConversationsFromBackend() above
         // already populated it. Either way, try to open it.
         const exists = conversations.find(c => String(c.id) === String(openId));
 
-        if(exists){
+        if (exists) {
             openConversation(exists.id);
         }
 
     }
 
     // Clean the query string so a page refresh doesn't re-trigger this.
-    if(params.toString()){
+    if (params.toString()) {
         window.history.replaceState({}, "", window.location.pathname);
     }
 
@@ -1278,9 +1278,9 @@ function toast(message, type = "success") {
 
             item.remove();
 
-        },300);
+        }, 300);
 
-    },2500);
+    }, 2500);
 
 }
 
@@ -1288,7 +1288,7 @@ function toast(message, type = "success") {
    ESCAPE HTML
 ========================================== */
 
-function escapeHTML(text){
+function escapeHTML(text) {
 
     const div = document.createElement("div");
 
@@ -1302,14 +1302,14 @@ function escapeHTML(text){
    CLICK OUTSIDE PROFILE DROPDOWN
 ========================================== */
 
-document.addEventListener("click",(e)=>{
+document.addEventListener("click", (e) => {
 
-    if(
+    if (
 
         !profileDropdown.contains(e.target) &&
         !profileBtn.contains(e.target)
 
-    ){
+    ) {
 
         profileDropdown.classList.remove("active");
 
@@ -1321,9 +1321,9 @@ document.addEventListener("click",(e)=>{
    ESC CLOSES MODALS
 ========================================== */
 
-document.addEventListener("keydown",(e)=>{
+document.addEventListener("keydown", (e) => {
 
-    if(e.key==="Escape"){
+    if (e.key === "Escape") {
 
         closeModal(loginOverlay);
 
@@ -1341,11 +1341,11 @@ document.addEventListener("keydown",(e)=>{
    CHIP BUTTONS
 ========================================== */
 
-chips.forEach(chip=>{
+chips.forEach(chip => {
 
-    chip.addEventListener("click",()=>{
+    chip.addEventListener("click", () => {
 
-        promptInput.value=chip.textContent;
+        promptInput.value = chip.textContent;
 
         promptInput.focus();
 
@@ -1359,7 +1359,7 @@ chips.forEach(chip=>{
    LOAD LAST CHAT
 ========================================== */
 
-if(conversations.length>0){
+if (conversations.length > 0) {
 
     renderRecentChats();
 
@@ -1375,7 +1375,7 @@ updateUserUI();
    PLACE CURSOR
 ========================================== */
 
-window.addEventListener("load",()=>{
+window.addEventListener("load", () => {
 
     promptInput.focus();
 
@@ -1385,7 +1385,7 @@ window.addEventListener("load",()=>{
    SAVE BEFORE LEAVING
 ========================================== */
 
-window.addEventListener("beforeunload",()=>{
+window.addEventListener("beforeunload", () => {
 
     saveData();
     renderAuditLogs();
@@ -1525,9 +1525,9 @@ settingsTabs.forEach(tab => {
    ACCOUNT PLACEHOLDERS
 ========================================== */
 
-function loadAccountPage(page){
+function loadAccountPage(page) {
 
-    switch(page){
+    switch (page) {
 
         case "information":
 
@@ -1549,7 +1549,7 @@ function loadAccountPage(page){
 
             `;
 
-        break;
+            break;
 
         case "password":
 
@@ -1571,7 +1571,7 @@ function loadAccountPage(page){
 
             `;
 
-        break;
+            break;
 
         case "switch":
 
@@ -1593,13 +1593,13 @@ function loadAccountPage(page){
 
             `;
 
-        break;
+            break;
 
         case "signout":
 
             openModal(logoutOverlay);
 
-        break;
+            break;
 
 
     }
@@ -1610,9 +1610,9 @@ function loadAccountPage(page){
    SETTINGS PLACEHOLDERS
 ========================================== */
 
-function loadSettingsPage(page){
+function loadSettingsPage(page) {
 
-    switch(page){
+    switch (page) {
 
         case "model":
 
@@ -1634,7 +1634,7 @@ function loadSettingsPage(page){
 
             `;
 
-        break;
+            break;
 
         case "version":
 
@@ -1656,7 +1656,7 @@ function loadSettingsPage(page){
 
             `;
 
-        break;
+            break;
 
         case "history":
 
@@ -1678,7 +1678,7 @@ function loadSettingsPage(page){
 
             `;
 
-        break;
+            break;
 
         case "highlight":
 
@@ -1700,7 +1700,7 @@ function loadSettingsPage(page){
 
             `;
 
-        break;
+            break;
 
         case "theme":
 
@@ -1722,7 +1722,7 @@ function loadSettingsPage(page){
 
             `;
 
-        break;
+            break;
 
         case "accent":
 
@@ -1744,7 +1744,7 @@ function loadSettingsPage(page){
 
             `;
 
-        break;
+            break;
 
     }
 
@@ -1767,7 +1767,7 @@ function resetAccountTabs() {
 
     const first = accountOverlay.querySelector('[data-account="information"]');
 
-    if(first){
+    if (first) {
 
         first.classList.add("active");
 
@@ -1785,7 +1785,7 @@ function resetSettingsTabs() {
 
     const first = settingsOverlay.querySelector('[data-setting="model"]');
 
-    if(first){
+    if (first) {
 
         first.classList.add("active");
 
@@ -1797,9 +1797,9 @@ function resetSettingsTabs() {
    OPEN DEFAULT PAGE EVERY TIME
 ========================================== */
 
-if(accountBtn){
+if (accountBtn) {
 
-    accountBtn.addEventListener("click",()=>{
+    accountBtn.addEventListener("click", () => {
 
         resetAccountTabs();
 
@@ -1809,9 +1809,9 @@ if(accountBtn){
 
 }
 
-if(settingsBtn){
+if (settingsBtn) {
 
-    settingsBtn.addEventListener("click",()=>{
+    settingsBtn.addEventListener("click", () => {
 
         resetSettingsTabs();
 
@@ -1825,9 +1825,9 @@ if(settingsBtn){
    ESC CLOSES NEW WINDOWS
 ========================================== */
 
-document.addEventListener("keydown",(e)=>{
+document.addEventListener("keydown", (e) => {
 
-    if(e.key==="Escape"){
+    if (e.key === "Escape") {
 
         closeModal(accountOverlay);
 
@@ -1841,7 +1841,7 @@ document.addEventListener("keydown",(e)=>{
    PREVENT DROPDOWN WHEN MODALS OPEN
 ========================================== */
 
-function closeEverything(){
+function closeEverything() {
 
     profileDropdown.classList.remove("active");
 
@@ -1851,15 +1851,15 @@ function closeEverything(){
 
 }
 
-document.addEventListener("click",(e)=>{
+document.addEventListener("click", (e) => {
 
-    if(
+    if (
 
         !profileDropdown.contains(e.target) &&
 
         !profileBtn.contains(e.target)
 
-    ){
+    ) {
 
         profileDropdown.classList.remove("active");
 
@@ -1871,7 +1871,7 @@ document.addEventListener("click",(e)=>{
    PLACEHOLDER HELPERS
 ========================================== */
 
-function comingSoon(title,icon){
+function comingSoon(title, icon) {
 
     return `
 
@@ -1897,25 +1897,25 @@ function comingSoon(title,icon){
    FUTURE FUNCTIONS
 ========================================== */
 
-function updateTheme(theme){
+function updateTheme(theme) {
 
-    console.log("Theme selected:",theme);
-
-}
-
-function updateAccent(color){
-
-    console.log("Accent selected:",color);
+    console.log("Theme selected:", theme);
 
 }
 
-function clearChatHistory(){
+function updateAccent(color) {
+
+    console.log("Accent selected:", color);
+
+}
+
+function clearChatHistory() {
 
     console.log("Clear history");
 
 }
 
-function switchAccount(){
+function switchAccount() {
 
     console.log("Switch account");
 
@@ -1927,9 +1927,9 @@ function switchAccount(){
    OPTIONAL LOADING ANIMATION
 ========================================== */
 
-function showSettingsLoading(container){
+function showSettingsLoading(container) {
 
-    container.innerHTML=`
+    container.innerHTML = `
 
         <div class="settings-placeholder">
 
@@ -2042,14 +2042,14 @@ function updateAuditCards() {
     const blocked = document.getElementById("blockedRequests");
     const modified = document.getElementById("modifiedResponses");
 
-    if(total) total.textContent = stats.total;
-    if(safe) safe.textContent = stats.safe;
-    if(blocked) blocked.textContent = stats.blocked;
-    if(modified) modified.textContent = stats.modified;
+    if (total) total.textContent = stats.total;
+    if (safe) safe.textContent = stats.safe;
+    if (blocked) blocked.textContent = stats.blocked;
+    if (modified) modified.textContent = stats.modified;
 
 }
 
-function renderAuditLogs(){
+function renderAuditLogs() {
 
     updateAuditCards();
 
@@ -2057,7 +2057,7 @@ function renderAuditLogs(){
 
 }
 
-window.addEventListener("load",()=>{
+window.addEventListener("load", () => {
 
     renderAuditLogs();
 
