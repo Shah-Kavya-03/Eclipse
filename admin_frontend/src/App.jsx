@@ -20,10 +20,10 @@ import { AccountPage } from './pages/AccountPage.jsx';
 
 /**
  * Route protection guard that checks administrator authentication.
+ * Unauthenticated visitors are redirected directly to the primary user interface.
  */
 function ProtectedAdminRoute({ children }) {
   const { isAuthenticated, isAdmin, loading } = useAuth();
-  const location = useLocation();
 
   if (loading) {
     return (
@@ -44,7 +44,11 @@ function ProtectedAdminRoute({ children }) {
   }
 
   if (!isAuthenticated || !isAdmin) {
-    return <Navigate to="/admin/login" state={{ from: location }} replace />;
+    const hostname = typeof window !== 'undefined' ? (window.location.hostname || 'localhost') : 'localhost';
+    if (typeof window !== 'undefined') {
+      window.location.replace(`http://${hostname}:5173/`);
+    }
+    return null;
   }
 
   return children;
@@ -57,7 +61,7 @@ export default function App() {
         <AuthProvider>
           <ToastProvider>
             <Routes>
-              {/* Public Login Route */}
+              {/* Obsolete Admin Login Route — redirects to primary application */}
               <Route path="/admin/login" element={<LoginPage />} />
 
               {/* Protected Admin Routes with Shared Layout */}

@@ -1,13 +1,12 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   Users as UsersIcon, Search, AlertTriangle, Shield,
-  RefreshCw, MessageSquare, Flag, FlagOff, UserCheck
+  RefreshCw, UserCheck
 } from 'lucide-react';
 import { usersApi } from '../api/usersApi.js';
 import { DataTable } from '../components/tables/DataTable.jsx';
 import { RoleBadge } from '../components/ui/Badges.jsx';
-import { Modal, ConfirmModal } from '../components/ui/Modal.jsx';
+import { Modal } from '../components/ui/Modal.jsx';
 import { formatDateTime, formatNumber } from '../utils/helpers.js';
 import { useToast } from '../context/ToastContext.jsx';
 
@@ -20,10 +19,6 @@ export function UsersPage() {
 
   // Modal states
   const [selectedUser, setSelectedUser] = useState(null);
-  const [flagUserTarget, setFlagUserTarget] = useState(null);
-  const [flagging, setFlagging] = useState(false);
-
-  const navigate = useNavigate();
   const toast = useToast();
 
   const fetchUsers = useCallback(async () => {
@@ -44,26 +39,6 @@ export function UsersPage() {
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
-
-  const handleToggleFlag = async () => {
-    if (!flagUserTarget) return;
-    setFlagging(true);
-    try {
-      const res = await usersApi.flagUser(flagUserTarget.user_id);
-      setUsers((prev) =>
-        prev.map((u) => (u.user_id === flagUserTarget.user_id ? { ...u, is_flagged: res.is_flagged } : u))
-      );
-      toast.success(
-        res.is_flagged ? 'User Flagged' : 'Flag Cleared',
-        `User ${flagUserTarget.name || flagUserTarget.email} flag state set to ${res.is_flagged ? 'flagged' : 'unflagged'}.`
-      );
-      setFlagUserTarget(null);
-    } catch (err) {
-      toast.error('Action Failed', err?.response?.data?.detail || 'Could not update user flag state.');
-    } finally {
-      setFlagging(false);
-    }
-  };
 
   const filteredUsers = useMemo(() => {
     return users.filter((u) => {
@@ -136,21 +111,12 @@ export function UsersPage() {
       render: (_, row) => (
         <div style={{ display: 'flex', gap: 6 }} onClick={(e) => e.stopPropagation()}>
           <button
-            className={`btn btn-sm ${row.is_flagged ? 'btn-ghost' : 'btn-danger'}`}
-            style={{ padding: '4px 8px', fontSize: '0.75rem' }}
-            title={row.is_flagged ? 'Remove flag' : 'Flag as suspicious'}
-            onClick={() => setFlagUserTarget(row)}
-          >
-            {row.is_flagged ? <FlagOff size={13} /> : <Flag size={13} />}
-            {row.is_flagged ? 'Unflag' : 'Flag'}
-          </button>
-          <button
             className="btn btn-secondary btn-sm"
-            style={{ padding: '4px 8px', fontSize: '0.75rem' }}
-            title="Browse user conversation history"
-            onClick={() => navigate(`/admin/conversations?userId=${row.user_id}`)}
+            style={{ padding: '4px 10px', fontSize: '0.75rem' }}
+            title="View user details"
+            onClick={() => setSelectedUser(row)}
           >
-            <MessageSquare size={13} /> Chats
+            <UserCheck size={13} /> View Profile
           </button>
         </div>
       ),
@@ -221,17 +187,7 @@ export function UsersPage() {
         onClose={() => setSelectedUser(null)}
         title="User Profile & Security Record"
         footer={
-          <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-            <button
-              className="btn btn-secondary"
-              onClick={() => {
-                const uid = selectedUser.user_id;
-                setSelectedUser(null);
-                navigate(`/admin/conversations?userId=${uid}`);
-              }}
-            >
-              <MessageSquare size={14} /> View User Chats
-            </button>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
             <button className="btn btn-primary" onClick={() => setSelectedUser(null)}>
               Done
             </button>
@@ -279,22 +235,6 @@ export function UsersPage() {
           </div>
         )}
       </Modal>
-
-      {/* Confirm Flag / Unflag Modal */}
-      <ConfirmModal
-        open={Boolean(flagUserTarget)}
-        onClose={() => setFlagUserTarget(null)}
-        onConfirm={handleToggleFlag}
-        title={flagUserTarget?.is_flagged ? 'Clear User Security Flag?' : 'Flag User as Suspicious?'}
-        message={
-          flagUserTarget?.is_flagged
-            ? `Are you sure you want to remove the suspicious security flag from ${flagUserTarget.name || flagUserTarget.email}?`
-            : `Flagging ${flagUserTarget?.name || flagUserTarget?.email} will mark their account as suspicious across admin metrics.`
-        }
-        confirmLabel={flagUserTarget?.is_flagged ? 'Remove Flag' : 'Flag Account'}
-        danger={!flagUserTarget?.is_flagged}
-        loading={flagging}
-      />
     </div>
   );
 }

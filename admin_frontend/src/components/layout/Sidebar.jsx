@@ -1,16 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
-  LayoutDashboard, Users, MessageSquare, BarChart3, AlertTriangle,
-  ScrollText, FileDown, Settings, Activity, UserCog, Shield,
-  ChevronLeft, ChevronRight, LogOut,
+  LayoutDashboard, Users, BarChart3, AlertTriangle,
+  ScrollText, FileDown, Settings, Activity, UserCog,
+  ChevronLeft, ChevronRight, LogOut, MessageSquare,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.jsx';
+import { EclipseLogo } from '../ui/EclipseLogo.jsx';
 
 const NAV_ITEMS = [
   { path: '/admin',            label: 'Overview',         icon: LayoutDashboard, exact: true },
   { path: '/admin/users',      label: 'Users',            icon: Users },
-  { path: '/admin/conversations', label: 'Conversations', icon: MessageSquare },
   { path: '/admin/analytics',  label: 'Guardrail Analytics', icon: BarChart3 },
   { path: '/admin/anomalies',  label: 'Anomalies',        icon: AlertTriangle },
   { path: '/admin/logs',       label: 'Logs & Audit',     icon: ScrollText },
@@ -21,7 +21,7 @@ const NAV_ITEMS = [
 ];
 
 export function Sidebar({ collapsed, onToggle }) {
-  const { logout, user } = useAuth();
+  const { logout, user, token } = useAuth();
   const location         = useLocation();
 
   return (
@@ -29,7 +29,7 @@ export function Sidebar({ collapsed, onToggle }) {
       {/* Logo */}
       <div className="sidebar-logo">
         <div className="sidebar-logo-icon">
-          <Shield size={18} />
+          <EclipseLogo size={28} />
         </div>
         <div style={{ overflow: 'hidden' }}>
           <div className="sidebar-logo-text">Eclipse</div>
@@ -48,7 +48,7 @@ export function Sidebar({ collapsed, onToggle }) {
               to={item.path}
               end={Boolean(item.exact)}
               className={({ isActive }) => `sidebar-item${isActive ? ' active' : ''}`}
-              title={collapsed ? item.label : undefined}
+              data-tooltip={item.label}
               aria-label={item.label}
             >
               <Icon className="sidebar-item-icon" size={18} />
@@ -56,6 +56,28 @@ export function Sidebar({ collapsed, onToggle }) {
             </NavLink>
           );
         })}
+
+        <div className="sidebar-section-label" style={{ marginTop: 12 }}>Application</div>
+        <a
+          href={`http://${typeof window !== 'undefined' ? (window.location.hostname || 'localhost') : 'localhost'}:5173/`}
+          className="sidebar-item"
+          data-tooltip="User Chat"
+          aria-label="User Chat"
+          onClick={(e) => {
+            e.preventDefault();
+            const hostname = window.location.hostname || 'localhost';
+            let url = `http://${hostname}:5173/`;
+            if (token && user) {
+              const currentTheme = localStorage.getItem('eclipse_admin_theme') || 'dark';
+              const payload = encodeURIComponent(JSON.stringify({ token, user, theme: currentTheme }));
+              url = `http://${hostname}:5173/#session=${payload}`;
+            }
+            window.location.href = url;
+          }}
+        >
+          <MessageSquare className="sidebar-item-icon" size={18} style={{ color: 'var(--accent-secondary)' }} />
+          <span className="sidebar-item-label">User Chat</span>
+        </a>
       </nav>
 
       {/* Bottom: user info + collapse toggle */}

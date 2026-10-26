@@ -62,14 +62,28 @@ export function LogsPage() {
     }
   };
 
+  // Requirement 9: Show only suspicious prompts for security review
+  const isSuspicious = useCallback((log) => {
+    if (!log) return false;
+    const normStatus = String(log.status || '').trim().toLowerCase();
+    const safeStatuses = ['safe', 'protected', 'passed', 'allowed', 'active', 'ok', 'healthy'];
+    if (safeStatuses.includes(normStatus)) {
+      return Boolean(Number(log.threat_tier) > 1 || log.is_anomalous);
+    }
+    return true;
+  }, []);
+
   const filteredLogs = useMemo(() => {
     return logs.filter((log) => {
+      // Exclude prompts classified as safe or normal
+      if (!isSuspicious(log)) return false;
+
       const q = search.toLowerCase();
       const matchesSearch =
-        (log.prompt_masked || '').toLowerCase().includes(q) ||
-        (log.response || '').toLowerCase().includes(q) ||
+        (log.status || '').toLowerCase().includes(q) ||
         (log.session_id || '').toLowerCase().includes(q) ||
         (log.title || '').toLowerCase().includes(q) ||
+        (log.model_used || '').toLowerCase().includes(q) ||
         (log.user_id || '').toLowerCase().includes(q);
 
       if (!matchesSearch) return false;
@@ -80,7 +94,7 @@ export function LogsPage() {
       }
       return true;
     });
-  }, [logs, search, statusFilter, tierFilter, providerFilter]);
+  }, [logs, search, statusFilter, tierFilter, providerFilter, isSuspicious]);
 
   const columns = [
     {
@@ -103,17 +117,15 @@ export function LogsPage() {
     },
     {
       key: 'prompt_masked',
-      label: 'Sanitized Prompt Preview',
-      render: (txt, row) => (
+      label: 'Security Event Summary',
+      render: (_, row) => (
         <div>
-          <div style={{ color: 'var(--text-primary)', fontSize: '0.8125rem' }}>
-            {truncate(txt, 70)}
+          <div style={{ color: 'var(--text-primary)', fontSize: '0.8125rem', fontWeight: 500 }}>
+            {row.status ? `Threat Category: ${row.status}` : 'Suspicious Activity'}
           </div>
-          {row.title && (
-            <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)' }}>
-              Session: {row.title}
-            </div>
-          )}
+          <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)' }}>
+            {row.title ? `Session: ${row.title}` : (row.session_id ? `ID: ${row.session_id.slice(0, 10)}…` : 'Protected User Session')}
+          </div>
         </div>
       ),
     },
@@ -181,7 +193,7 @@ export function LogsPage() {
           <input
             type="text"
             className="form-input"
-            placeholder="Search prompt, response, session, or user ID…"
+            placeholder="Search by threat status, session, model, or user ID…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -189,16 +201,15 @@ export function LogsPage() {
 
         <select
           className="form-select"
-          style={{ width: 'auto', minWidth: 140 }}
+          style={{ width: 'auto', minWidth: 150 }}
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
         >
-          <option value="all">All Verdicts</option>
-          <option value="Safe">Safe</option>
-          <option value="PII Detected">PII Detected</option>
+          <option value="all">All Suspicious Verdicts</option>
           <option value="Prompt Injection">Prompt Injection</option>
           <option value="Harmful">Harmful</option>
           <option value="Jailbreak">Jailbreak</option>
+          <option value="PII Detected">PII Detected</option>
           <option value="Modified">Modified</option>
         </select>
 
@@ -324,10 +335,10 @@ export function LogsPage() {
               </div>
             </div>
 
-            {/* Sanitized Prompt */}
+            {/* Threat Metadata */}
             <div style={{ marginBottom: 16 }}>
               <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>
-                Sanitized / Masked Prompt
+                Security Inspection Details
               </div>
               <div
                 style={{
@@ -335,22 +346,22 @@ export function LogsPage() {
                   border: '1px solid var(--border)',
                   borderRadius: 'var(--radius-md)',
                   padding: '12px 14px',
-                  fontFamily: 'var(--font-mono)',
                   fontSize: '0.8125rem',
-                  color: 'var(--text-primary)',
-                  maxHeight: 180,
-                  overflowY: 'auto',
-                  whiteSpace: 'pre-wrap',
+                  color: 'var(--text-secondary)',
+                  lineHeight: 1.5,
                 }}
               >
-                {selectedLog.prompt_masked || '(Empty prompt)'}
+                <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>
+                  Classification: <span style={{ color: 'var(--accent-danger)' }}>{selectedLog.status}</span> (Tier {selectedLog.threat_tier || 1})
+                </div>
+                <div>Raw prompt and message contents are redacted in compliance with user privacy standards. Only threat classification telemetry is displayed.</div>
               </div>
             </div>
 
-            {/* LLM Response */}
+            {/* Guardrail Response Status */}
             <div style={{ marginBottom: 16 }}>
               <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>
-                LLM Response
+                Guardrail Action
               </div>
               <div
                 style={{
@@ -360,12 +371,12 @@ export function LogsPage() {
                   padding: '12px 14px',
                   fontSize: '0.8125rem',
                   color: 'var(--text-primary)',
-                  maxHeight: 180,
-                  overflowY: 'auto',
-                  whiteSpace: 'pre-wrap',
+                  lineHeight: 1.5,
                 }}
               >
-                {selectedLog.response || '(No response recorded)'}
+                {selectedLog.status === 'Blocked' || selectedLog.status === 'Prompt Injection' || selectedLog.status === 'Harmful' || selectedLog.status === 'Jailbreak'
+                  ? 'Request intercepted and blocked by Eclipse security guardrail prior to model execution.'
+                  : 'Telemetry captured and sanitized by guardrail pipeline.'}
               </div>
             </div>
 

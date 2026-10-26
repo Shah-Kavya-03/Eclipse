@@ -136,7 +136,7 @@ export default function SignupModal({ isOpen, onClose, onBackToLogin }) {
                         </button>
                     </div>
 
-                    <button type="submit" className="login-btn" disabled={loading}>
+                    <button type="submit" className="login-btn signup-btn" disabled={loading}>
                         {loading ? 'Creating Account...' : 'Create Account'}
                     </button>
 

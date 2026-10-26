@@ -99,18 +99,8 @@ export function ConversationsPage() {
   }, [selectedUserId, fetchConversations, setSearchParams]);
 
   // Open conversation details
-  const handleOpenConversation = async (session) => {
+  const handleOpenConversation = (session) => {
     setActiveSession(session);
-    setLoadingDetail(true);
-    setSessionDetail(null);
-    try {
-      const res = await conversationsApi.getConversation(session.session_id);
-      setSessionDetail(res);
-    } catch (err) {
-      toast.error('Load Error', 'Failed to retrieve full conversation messages.');
-    } finally {
-      setLoadingDetail(false);
-    }
   };
 
   // Rename conversation
@@ -349,12 +339,12 @@ export function ConversationsPage() {
         </div>
       </div>
 
-      {/* Conversation Messages Drawer / Modal */}
+      {/* Conversation Session Audit Metadata Modal */}
       <Modal
         open={Boolean(activeSession)}
         onClose={() => setActiveSession(null)}
-        title={activeSession?.title || 'Conversation Transcript'}
-        maxWidth={720}
+        title={activeSession?.title ? `Session Audit: ${activeSession.title}` : 'Security Session Audit'}
+        maxWidth={640}
         footer={
           <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
             <button
@@ -373,91 +363,51 @@ export function ConversationsPage() {
         {activeSession && (
           <div>
             {/* Session metadata summary */}
-            <div
-              style={{
-                display: 'flex',
-                gap: 12,
-                flexWrap: 'wrap',
-                padding: 12,
-                background: 'var(--bg-elevated)',
-                borderRadius: 'var(--radius-md)',
-                marginBottom: 16,
-                fontSize: '0.8125rem',
-                border: '1px solid var(--border)',
-              }}
-            >
-              <div>
-                <span style={{ color: 'var(--text-muted)' }}>Session ID: </span>
-                <span className="mono">{activeSession.session_id}</span>
+            <div className="detail-panel" style={{ marginBottom: 16 }}>
+              <div className="detail-field">
+                <span className="detail-field-label">Session ID</span>
+                <span className="detail-field-value mono">{activeSession.session_id}</span>
               </div>
-              <div>
-                <span style={{ color: 'var(--text-muted)' }}>Model: </span>
-                <span>{activeSession.model_used || 'Default'}</span>
+              <div className="detail-field">
+                <span className="detail-field-label">Model & Provider</span>
+                <span className="detail-field-value">
+                  {activeSession.model_used || 'Default'} {activeSession.api_used && `(${activeSession.api_used.toUpperCase()})`}
+                </span>
               </div>
-              <div>
-                <span style={{ color: 'var(--text-muted)' }}>Status: </span>
-                <StatusBadge status={activeSession.status || 'Safe'} />
+              <div className="detail-field">
+                <span className="detail-field-label">Guardrail Verdict</span>
+                <span className="detail-field-value">
+                  <StatusBadge status={activeSession.status || 'Safe'} />
+                </span>
+              </div>
+              <div className="detail-field">
+                <span className="detail-field-label">Exchanges Recorded</span>
+                <span className="detail-field-value mono">{activeSession.message_count ?? 0}</span>
+              </div>
+              <div className="detail-field">
+                <span className="detail-field-label">Created At</span>
+                <span className="detail-field-value">{formatDateTime(activeSession.created_at)}</span>
               </div>
             </div>
 
-            {/* Messages Feed */}
-            {loadingDetail ? (
-              <div style={{ padding: '32px 0', textAlign: 'center', color: 'var(--text-muted)' }}>
-                Loading conversation message history…
+            {/* Privacy Protection Notice */}
+            <div
+              style={{
+                padding: '24px 20px',
+                textAlign: 'center',
+                background: 'var(--bg-elevated)',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--border)',
+              }}
+            >
+              <AlertCircle size={28} color="var(--accent-info)" style={{ marginBottom: 10 }} />
+              <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: 6 }}>
+                Conversation Content Privacy Protected
               </div>
-            ) : !sessionDetail?.messages?.length ? (
-              <div style={{ padding: '32px 0', textAlign: 'center', color: 'var(--text-muted)' }}>
-                No message exchanges recorded for this session.
+              <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', maxWidth: 460, margin: '0 auto', lineHeight: 1.5 }}>
+                In accordance with DPDP compliance and user privacy policies, individual conversation message contents, user prompts, and AI responses are restricted from administrative inspection. Only security event metadata is retained.
               </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14, maxHeight: '55vh', overflowY: 'auto', paddingRight: 6 }}>
-                {sessionDetail.messages.map((m, idx) => {
-                  const isUser = m.sender === 'user';
-                  return (
-                    <div
-                      key={idx}
-                      style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: isUser ? 'flex-end' : 'flex-start',
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 6,
-                          marginBottom: 4,
-                          fontSize: '0.75rem',
-                          color: 'var(--text-muted)',
-                        }}
-                      >
-                        {isUser ? <User size={12} /> : <Bot size={12} />}
-                        <span>{isUser ? 'User' : 'Assistant'}</span>
-                        {m.timestamp && <span>• {formatDateTime(m.timestamp)}</span>}
-                      </div>
-
-                      <div
-                        style={{
-                          maxWidth: '85%',
-                          padding: '12px 16px',
-                          borderRadius: 'var(--radius-md)',
-                          background: isUser ? 'var(--accent-primary-bg)' : 'var(--bg-elevated)',
-                          border: `1px solid ${isUser ? 'rgba(139,124,255,.3)' : 'var(--border)'}`,
-                          color: 'var(--text-primary)',
-                          fontSize: '0.875rem',
-                          lineHeight: 1.6,
-                          whiteSpace: 'pre-wrap',
-                          wordBreak: 'break-word',
-                        }}
-                      >
-                        {m.text}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+            </div>
           </div>
         )}
       </Modal>

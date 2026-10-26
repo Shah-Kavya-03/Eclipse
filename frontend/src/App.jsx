@@ -82,6 +82,10 @@ export default function App() {
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
 
+        if (params.get('logged_out') === '1') {
+            if (logout) logout();
+        }
+
         if (currentUser?.user_id) {
             refreshConversationsFromBackend();
         }
@@ -99,14 +103,14 @@ export default function App() {
         if (params.toString()) {
             window.history.replaceState({}, '', window.location.pathname + window.location.hash);
         }
-    }, [currentUser, openConversation, refreshConversationsFromBackend]);
+    }, [currentUser, logout, openConversation, refreshConversationsFromBackend]);
 
     // Secure cross-window session sharing for Admin Dashboard (port 5174)
     useEffect(() => {
         const handleSessionRequest = (e) => {
             if (e.origin !== 'http://localhost:5174' && e.origin !== 'http://127.0.0.1:5174') return;
             if (e.data?.type === 'ECLIPSE_REQUEST_SESSION') {
-                const token = localStorage.getItem('guardrailToken');
+                const token = localStorage.getItem('eclipse_admin_token') || localStorage.getItem('guardrailToken');
                 const userRaw = localStorage.getItem('guardrailUser');
                 if (token && userRaw) {
                     try {

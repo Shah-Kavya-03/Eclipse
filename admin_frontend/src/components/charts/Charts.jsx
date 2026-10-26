@@ -115,8 +115,15 @@ export function BarChartCard({ title, subtitle, data, series, height = 260, load
 
 /* ---- DonutChartCard ----------------------------------------- */
 export function DonutChartCard({ title, subtitle, data, loading, height = 260 }) {
-  // data: [{ name, value }]
-  const total = data?.reduce((s, d) => s + d.value, 0) || 0;
+  // Sort underlying chart data alphabetically (A-Z) by category name
+  const sortedData = React.useMemo(() => {
+    if (!data || !Array.isArray(data)) return [];
+    return [...data].sort((a, b) =>
+      String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' })
+    );
+  }, [data]);
+
+  const total = sortedData.reduce((s, d) => s + (Number(d.value) || 0), 0);
 
   return (
     <div className="chart-card">
@@ -132,14 +139,14 @@ export function DonutChartCard({ title, subtitle, data, loading, height = 260 })
             <ResponsiveContainer width={200} height={height}>
               <PieChart>
                 <Pie
-                  data={data}
+                  data={sortedData}
                   cx="50%" cy="50%"
                   innerRadius={60} outerRadius={88}
                   paddingAngle={3}
                   dataKey="value"
                 >
-                  {data?.map((entry, i) => (
-                    <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
+                  {sortedData.map((entry, i) => (
+                    <Cell key={entry.name || i} fill={PALETTE[i % PALETTE.length]} />
                   ))}
                 </Pie>
                 <Tooltip content={<CustomTooltip />} />
@@ -148,8 +155,8 @@ export function DonutChartCard({ title, subtitle, data, loading, height = 260 })
 
             {/* Legend */}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {data?.map((d, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {sortedData.map((d, i) => (
+                <div key={d.name || i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <div style={{ width: 10, height: 10, borderRadius: '50%', background: PALETTE[i % PALETTE.length], flexShrink: 0 }} />
                   <span style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', flex: 1 }}>{d.name}</span>
                   <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>{d.value?.toLocaleString()}</span>

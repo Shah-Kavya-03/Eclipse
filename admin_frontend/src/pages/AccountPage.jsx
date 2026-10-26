@@ -27,8 +27,6 @@ export function AccountPage() {
 
   const handleLogout = async () => {
     await logout();
-    toast.info('Signed Out', 'You have been safely signed out of the security console.');
-    navigate('/admin/login', { replace: true });
   };
 
   return (

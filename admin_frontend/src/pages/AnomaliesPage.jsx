@@ -191,7 +191,7 @@ export function AnomaliesPage() {
       </div>
 
       {/* Metric Cards */}
-      <div className="metric-grid section-gap">
+      <div className="metric-grid anomalies-metric-grid section-gap">
         <MetricCard
           label="Flagged Anomalies"
           value={formatNumber(anomalies.length)}

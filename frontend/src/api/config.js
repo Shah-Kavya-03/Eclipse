@@ -1,4 +1,5 @@
 export const API_BASE = "http://localhost:5000";
+export const PYTHON_API_BASE = "http://127.0.0.1:8001";
 
 /**
  * Maps a backend threat_tier status to the frontend's existing
@@ -25,6 +26,24 @@ export async function apiLogin(email, password) {
         body: JSON.stringify({ email, password })
     });
     return res;
+}
+
+export async function apiPythonLogin(email, password) {
+    try {
+        const res = await fetch(`${PYTHON_API_BASE}/auth/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, password })
+        });
+        return res;
+    } catch {
+        const hostname = typeof window !== 'undefined' ? (window.location.hostname || 'localhost') : 'localhost';
+        return fetch(`http://${hostname}:8001/auth/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, password })
+        });
+    }
 }
 
 export async function apiSignup(name, email, password) {

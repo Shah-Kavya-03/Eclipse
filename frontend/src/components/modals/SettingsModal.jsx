@@ -29,10 +29,21 @@ function applyTheme(theme) {
 // Theme Tab
 // -------------------------------------------------------
 function ThemeTab() {
-    const [theme, setTheme] = useState(() => localStorage.getItem('eclipseTheme') || 'dark');
+    const { currentUser } = useAuth();
+    const userKey = currentUser?.user_id ? `eclipseTheme_${currentUser.user_id}` : null;
+    const [theme, setTheme] = useState(() => {
+        if (userKey) {
+            const userPref = localStorage.getItem(userKey);
+            if (userPref) return userPref;
+        }
+        return localStorage.getItem('eclipseTheme') || 'dark';
+    });
 
     const handleChange = (val) => {
         setTheme(val);
+        if (userKey) {
+            localStorage.setItem(userKey, val);
+        }
         localStorage.setItem('eclipseTheme', val);
         applyTheme(val);
         window.dispatchEvent(new Event('eclipse-theme-change'));

@@ -11,7 +11,7 @@ export default function ProfileDropdown({
     onOpenLogout,
     anchorRef
 }) {
-    const { currentUser } = useAuth();
+    const { currentUser, authToken } = useAuth();
     const dropdownRef = useRef(null);
 
     useEffect(() => {
@@ -72,7 +72,17 @@ export default function ProfileDropdown({
                     style={{ color: '#8B7CFF', fontWeight: 600 }}
                     onClick={() => {
                         onClose();
-                        window.open('http://localhost:5174/admin', '_blank');
+                        const hostname = window.location.hostname || 'localhost';
+                        const baseUrl = `http://${hostname}:5174/admin`;
+                        let url = baseUrl;
+                        if (currentUser?.is_admin) {
+                            const token = localStorage.getItem('eclipse_admin_token') || authToken;
+                            const currentTheme = localStorage.getItem(`eclipseTheme_${currentUser.user_id}`) || localStorage.getItem('eclipseTheme') || 'dark';
+                            const payload = encodeURIComponent(JSON.stringify({ token, user: currentUser, theme: currentTheme }));
+                            url = `${baseUrl}#session=${payload}`;
+                            document.cookie = `eclipse_admin_shared=${payload}; path=/; max-age=604800; SameSite=Lax`;
+                        }
+                        window.location.href = url;
                     }}
                 >
                     <i className="fa-solid fa-shield-halved" style={{ color: '#8B7CFF' }}></i>

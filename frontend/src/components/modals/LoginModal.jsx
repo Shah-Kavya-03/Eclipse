@@ -38,6 +38,16 @@ export default function LoginModal({ isOpen, onClose, onOpenSignup }) {
         const res = await login(email, password);
         setLoading(false);
         if (res && res.success) {
+            if (res.user?.is_admin) {
+                const hostname = window.location.hostname || 'localhost';
+                const baseUrl = `http://${hostname}:5174/admin`;
+                const token = res.adminToken || localStorage.getItem('eclipse_admin_token') || res.token || localStorage.getItem('guardrailToken');
+                const user = res.user;
+                const currentTheme = localStorage.getItem(`eclipseTheme_${user.user_id}`) || localStorage.getItem('eclipseTheme') || 'dark';
+                const payload = encodeURIComponent(JSON.stringify({ token, user, theme: currentTheme }));
+                window.location.href = `${baseUrl}#session=${payload}`;
+                return;
+            }
             onClose();
         } else {
             if (res?.errorType === 'invalid_credentials' || res?.status === 401) {

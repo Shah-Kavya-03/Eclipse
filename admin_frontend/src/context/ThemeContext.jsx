@@ -8,11 +8,51 @@ const ThemeContext = createContext({
   setThemePreference: () => {},
 });
 
+function getCurrentUserId() {
+  try {
+    const raw = localStorage.getItem('eclipse_admin_user');
+    if (raw) {
+      const u = JSON.parse(raw);
+      return u?.user_id || u?.id || null;
+    }
+  } catch {}
+  return null;
+}
+
+function getUserStorageKey(userId) {
+  const uid = userId || getCurrentUserId();
+  return uid ? `eclipse_admin_theme_${uid}` : STORAGE_KEY;
+}
+
 function getInitialPreference() {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored === 'light' || stored === 'dark' || stored === 'system') {
-      return stored;
+    const uid = getCurrentUserId();
+    const userKey = getUserStorageKey(uid);
+    const storedUser = localStorage.getItem(userKey);
+    if (storedUser === 'light' || storedUser === 'dark' || storedUser === 'system') {
+      return storedUser;
+    }
+    // Check if session passed in URL hash contains theme
+    if (typeof window !== 'undefined' && window.location.hash) {
+      const match = window.location.hash.match(/(?:#|&|%22)theme(?:%22%3A%22|%3D|=)(light|dark|system)/i);
+      if (match && match[1]) {
+        return match[1].toLowerCase();
+      }
+    }
+    // Check user frontend scoped theme or global user frontend theme
+    if (uid) {
+      const userFrontendTheme = localStorage.getItem(`eclipseTheme_${uid}`);
+      if (userFrontendTheme === 'light' || userFrontendTheme === 'dark' || userFrontendTheme === 'system') {
+        return userFrontendTheme;
+      }
+    }
+    const generalFrontendTheme = localStorage.getItem('eclipseTheme');
+    if (generalFrontendTheme === 'light' || generalFrontendTheme === 'dark' || generalFrontendTheme === 'system') {
+      return generalFrontendTheme;
+    }
+    const storedGlobal = localStorage.getItem(STORAGE_KEY);
+    if (storedGlobal === 'light' || storedGlobal === 'dark' || storedGlobal === 'system') {
+      return storedGlobal;
     }
   } catch {
     // localStorage might be unavailable
@@ -61,6 +101,8 @@ export function ThemeProvider({ children }) {
     if (pref !== 'light' && pref !== 'dark' && pref !== 'system') return;
     setThemePreferenceState(pref);
     try {
+      const userKey = getUserStorageKey();
+      localStorage.setItem(userKey, pref);
       localStorage.setItem(STORAGE_KEY, pref);
     } catch {
       // ignore storage failure

@@ -48,10 +48,18 @@ const handleAuthError = (error) => {
   if (error.response?.status === 401 || error.response?.status === 403) {
     // Only clear session and redirect if this is an admin-protected endpoint
     const url = error.config?.url || '';
-    if (url.includes('/admin') && typeof window !== 'undefined' && window.location.pathname !== '/admin/login') {
+    if (url.includes('/admin') && typeof window !== 'undefined') {
       localStorage.removeItem('eclipse_admin_token');
       localStorage.removeItem('eclipse_admin_user');
-      window.location.href = '/admin/login';
+      document.cookie = 'eclipse_admin_shared=; path=/; max-age=0; SameSite=Lax';
+      document.cookie = 'eclipse_logged_out=1; path=/; max-age=60; SameSite=Lax';
+      try {
+        const channel = new BroadcastChannel('eclipse_auth_channel');
+        channel.postMessage({ type: 'ECLIPSE_LOGOUT' });
+        channel.close();
+      } catch {}
+      const hostname = window.location.hostname || 'localhost';
+      window.location.replace(`http://${hostname}:5173/?logged_out=1`);
     }
   }
   return Promise.reject(error);

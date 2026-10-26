@@ -287,7 +287,8 @@ export default function AccountModal({
                             </div>
                             <h3>Switch Account</h3>
                             <p className="switch-note">
-                                <i className="fa-solid fa-circle-info"></i> Your saved conversation history and settings remain safe and linked to this account in the database.
+                                <i className="fa-solid fa-circle-info" aria-hidden="true"></i>
+                                <span>Your saved conversation history and settings remain safe and linked to this account in the database.</span>
                             </p>
 
                             <button

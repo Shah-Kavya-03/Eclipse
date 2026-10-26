@@ -412,9 +412,38 @@ html[data-theme="light"] #promptInput::placeholder {
 }
 
 html[data-theme="light"] .send-button {
-    background: linear-gradient(135deg, #00d2ff, #2563eb, #7c3aed) !important;
+    background: var(--send-gradient, linear-gradient(135deg, #00d2ff, #2563eb, #7c3aed)) !important;
     color: #ffffff !important;
     box-shadow: 0 4px 14px rgba(0, 210, 255, 0.35) !important;
+    transition: all 0.2s ease !important;
+}
+
+html[data-theme="light"] .send-button:hover:not(:disabled) {
+    box-shadow: 0 6px 22px rgba(0, 210, 255, 0.5) !important;
+    filter: brightness(1.08) !important;
+}
+
+html[data-theme="light"] .send-button:focus-visible {
+    outline: none !important;
+    box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.4) !important;
+}
+
+html[data-theme="light"] .send-button:active:not(:disabled) {
+    transform: scale(0.96) !important;
+}
+
+html[data-theme="light"] .send-button:disabled {
+    opacity: 0.45 !important;
+    background: rgba(148, 163, 184, 0.35) !important;
+    color: #94a3b8 !important;
+    box-shadow: none !important;
+    cursor: not-allowed !important;
+}
+
+html[data-theme="light"] .send-button i,
+html[data-theme="light"] .send-button svg {
+    color: #ffffff !important;
+    fill: #ffffff !important;
 }
 
 html[data-theme="light"] .security-footer {
@@ -448,33 +477,136 @@ html[data-theme="light"] .modal h3 {
 }
 
 html[data-theme="light"] .closeModal {
-    color: #64748b !important;
+    background: rgba(241, 245, 249, 0.85) !important;
+    border: 1px solid rgba(203, 213, 225, 0.8) !important;
+    color: #475569 !important;
 }
 
 html[data-theme="light"] .closeModal:hover {
+    background: rgba(226, 232, 240, 0.98) !important;
+    border-color: rgba(148, 163, 184, 0.6) !important;
     color: #0f172a !important;
 }
 
-/* Search Modal */
+html[data-theme="light"] .closeModal:focus-visible {
+    outline: none !important;
+    box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.4) !important;
+}
+
+/* ---- Login & Sign Up Form Inputs in Light Mode ---- */
+html[data-theme="light"] #loginForm input,
+html[data-theme="light"] #signupForm input {
+    background: rgba(255, 255, 255, 0.88) !important;
+    color: #0f172a !important;
+    border: 1px solid rgba(203, 213, 225, 0.85) !important;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease !important;
+}
+
+html[data-theme="light"] #loginForm input::placeholder,
+html[data-theme="light"] #signupForm input::placeholder {
+    color: #64748b !important;
+    opacity: 0.85 !important;
+}
+
+html[data-theme="light"] #loginForm input:focus,
+html[data-theme="light"] #signupForm input:focus {
+    background: #ffffff !important;
+    border-color: #0284c7 !important;
+    box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.2) !important;
+    outline: none !important;
+}
+
+html[data-theme="light"] .toggle-password {
+    color: #64748b !important;
+}
+
+html[data-theme="light"] .toggle-password:hover {
+    color: #0284c7 !important;
+}
+
+/* ---- Search Modal in Light Mode ---- */
+html[data-theme="light"] .search-modal {
+    background: rgba(255, 255, 255, 0.95) !important;
+    backdrop-filter: blur(28px) !important;
+    -webkit-backdrop-filter: blur(28px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.95) !important;
+    box-shadow: 0 25px 60px rgba(31, 38, 135, 0.15) !important;
+    color: #0f172a !important;
+}
+
 html[data-theme="light"] #searchInput {
-    background: rgba(255, 255, 255, 0.8) !important;
+    background: rgba(241, 245, 249, 0.85) !important;
     color: #0f172a !important;
     border: 1px solid rgba(203, 213, 225, 0.8) !important;
+    border-radius: 14px !important;
+    padding: 14px 18px !important;
+    font-size: 15px !important;
+    transition: all 0.2s ease !important;
 }
 
 html[data-theme="light"] #searchInput::placeholder {
     color: #64748b !important;
+    opacity: 0.9 !important;
+}
+
+html[data-theme="light"] #searchInput:focus {
+    background: rgba(255, 255, 255, 0.98) !important;
+    border-color: #0284c7 !important;
+    box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.25) !important;
+    outline: none !important;
+}
+
+html[data-theme="light"] .search-results {
+    color: #475569 !important;
 }
 
 html[data-theme="light"] .search-item {
-    background: rgba(241, 245, 249, 0.7) !important;
+    background: rgba(241, 245, 249, 0.75) !important;
     color: #0f172a !important;
-    border: 1px solid rgba(226, 232, 240, 0.8) !important;
+    border: 1px solid rgba(226, 232, 240, 0.9) !important;
+    border-radius: 12px !important;
+    padding: 12px 16px !important;
+    transition: all 0.2s ease !important;
 }
 
 html[data-theme="light"] .search-item:hover {
     background: rgba(2, 132, 199, 0.1) !important;
+    border-color: rgba(2, 132, 199, 0.3) !important;
     color: #0284c7 !important;
+}
+
+/* ---- Login & Sign Up Buttons in Light Mode ---- */
+html[data-theme="light"] .login-btn,
+html[data-theme="light"] .signup-btn {
+    background: var(--button-gradient, linear-gradient(90deg, #00d2ff 0%, #3a7bd5 50%, #a855f7 100%)) !important;
+    color: #ffffff !important;
+    border: none !important;
+    box-shadow: 0 4px 18px rgba(0, 210, 255, 0.35) !important;
+    transition: all 0.2s ease !important;
+}
+
+html[data-theme="light"] .login-btn:hover:not(:disabled),
+html[data-theme="light"] .signup-btn:hover:not(:disabled) {
+    box-shadow: 0 6px 24px rgba(0, 210, 255, 0.5) !important;
+    filter: brightness(1.08) !important;
+}
+
+html[data-theme="light"] .login-btn:focus-visible,
+html[data-theme="light"] .signup-btn:focus-visible {
+    outline: none !important;
+    box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.35) !important;
+}
+
+html[data-theme="light"] .login-btn:active:not(:disabled),
+html[data-theme="light"] .signup-btn:active:not(:disabled) {
+    transform: scale(0.98) !important;
+}
+
+html[data-theme="light"] .login-btn:disabled,
+html[data-theme="light"] .signup-btn:disabled {
+    opacity: 0.6 !important;
+    cursor: not-allowed !important;
+    box-shadow: none !important;
 }
 
 /* Settings Modal */
@@ -763,6 +895,84 @@ html[data-theme="light"] .delete-chat-confirm-btn:hover:not(:disabled) {
     background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%) !important;
     box-shadow: 0 6px 20px rgba(239, 68, 68, 0.35) !important;
 }
+
+/* ---- Rename Chat Modal (Light Mode) ---- */
+html[data-theme="light"] .rename-modal {
+    background: rgba(255, 255, 255, 0.94) !important;
+    backdrop-filter: blur(28px) !important;
+    -webkit-backdrop-filter: blur(28px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.95) !important;
+    box-shadow: 0 25px 60px rgba(31, 38, 135, 0.15), 0 0 1px rgba(0, 0, 0, 0.1) !important;
+    color: #0f172a !important;
+}
+
+html[data-theme="light"] .rename-modal .modal-header h2 {
+    color: #0f172a !important;
+}
+
+html[data-theme="light"] .rename-modal .closeModal,
+html[data-theme="light"] #renameClose {
+    background: rgba(241, 245, 249, 0.8) !important;
+    border: 1px solid rgba(203, 213, 225, 0.7) !important;
+    color: #475569 !important;
+}
+
+html[data-theme="light"] .rename-modal .closeModal:hover,
+html[data-theme="light"] #renameClose:hover {
+    background: rgba(226, 232, 240, 0.95) !important;
+    color: #0f172a !important;
+}
+
+html[data-theme="light"] .rename-content label {
+    color: #475569 !important;
+}
+
+html[data-theme="light"] #renameInput {
+    background: rgba(241, 245, 249, 0.85) !important;
+    color: #0f172a !important;
+    border: 1px solid rgba(203, 213, 225, 0.85) !important;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04) !important;
+}
+
+html[data-theme="light"] #renameInput::placeholder {
+    color: #94a3b8 !important;
+}
+
+html[data-theme="light"] #renameInput:focus {
+    background: #ffffff !important;
+    border-color: #3b82f6 !important;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18) !important;
+    color: #0f172a !important;
+}
+
+html[data-theme="light"] .rename-cancel,
+html[data-theme="light"] #renameCancel {
+    background: rgba(241, 245, 249, 0.85) !important;
+    border: 1px solid rgba(203, 213, 225, 0.8) !important;
+    color: #475569 !important;
+}
+
+html[data-theme="light"] .rename-cancel:hover,
+html[data-theme="light"] #renameCancel:hover {
+    background: rgba(226, 232, 240, 0.95) !important;
+    border-color: rgba(148, 163, 184, 0.7) !important;
+    color: #0f172a !important;
+}
+
+html[data-theme="light"] .rename-save,
+html[data-theme="light"] #renameSave {
+    background: linear-gradient(135deg, #0284c7 0%, #7c3aed 100%) !important;
+    border: 1px solid rgba(124, 58, 237, 0.35) !important;
+    box-shadow: 0 4px 16px rgba(2, 132, 199, 0.25) !important;
+    color: #ffffff !important;
+}
+
+html[data-theme="light"] .rename-save:hover,
+html[data-theme="light"] #renameSave:hover {
+    background: linear-gradient(135deg, #0369a1 0%, #6d28d9 100%) !important;
+    box-shadow: 0 6px 20px rgba(2, 132, 199, 0.35) !important;
+}
+
 
 
 

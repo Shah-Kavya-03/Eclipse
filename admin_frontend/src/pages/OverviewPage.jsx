@@ -270,7 +270,7 @@ export function OverviewPage() {
                   <div>
                     <div style={{ fontSize: '0.875rem', fontWeight: 600 }}>Manage Users</div>
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                      Inspect users, toggle suspicious flags, view activity
+                      Inspect user directories, account roles, and security records
                     </div>
                   </div>
                 </div>

@@ -1,8 +1,36 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { apiLogin, apiSignup, apiLogout } from '../api/config';
+import { apiLogin, apiPythonLogin, apiSignup, apiLogout } from '../api/config';
 import { useToast } from './ToastContext';
 
 const AuthContext = createContext(null);
+
+function getSharedAdminSession() {
+    try {
+        if (typeof window !== 'undefined') {
+            const params = new URLSearchParams(window.location.search);
+            const cookie = document.cookie || '';
+            if (params.get('logged_out') === '1' || cookie.includes('eclipse_logged_out=1')) {
+                return null;
+            }
+            const hash = window.location.hash || '';
+            const match = hash.match(/(?:#|&)(?:shared_session|session)=([^&]+)/);
+            if (match && match[1]) {
+                const parsed = JSON.parse(decodeURIComponent(match[1]));
+                if (parsed?.user) {
+                    const cleanUrl = window.location.pathname + window.location.search;
+                    window.history.replaceState(null, '', cleanUrl);
+                    return parsed;
+                }
+            }
+        }
+        const cookieMatch = document.cookie.match(/(?:^|;\s*)eclipse_admin_shared=([^;]*)/);
+        if (cookieMatch && cookieMatch[1]) {
+            const parsed = JSON.parse(decodeURIComponent(cookieMatch[1]));
+            if (parsed?.user) return parsed;
+        }
+    } catch {}
+    return null;
+}
 
 /**
  * Bug 1 / Bug 11 fix:
@@ -57,6 +85,20 @@ export function AuthProvider({ children }) {
     const onLogoutRef = useRef(null);
 
     const [currentUser, setCurrentUser] = useState(() => {
+        if (typeof window !== 'undefined') {
+            const params = new URLSearchParams(window.location.search);
+            const cookie = document.cookie || '';
+            if (params.get('logged_out') === '1' || cookie.includes('eclipse_logged_out=1')) {
+                try {
+                    localStorage.removeItem('guardrailUser');
+                    localStorage.removeItem('guardrailToken');
+                    localStorage.removeItem('guardrailChats');
+                    localStorage.removeItem('eclipse_admin_token');
+                    localStorage.removeItem('eclipse_admin_user');
+                } catch {}
+                return null;
+            }
+        }
         const stored = localStorage.getItem('guardrailUser');
         if (stored) {
             try {
@@ -69,11 +111,25 @@ export function AuthProvider({ children }) {
                 return null;
             }
         }
+        const shared = getSharedAdminSession();
+        if (shared?.user) {
+            return normalizeUser(shared.user);
+        }
         return null;
     });
 
     const [authToken, setAuthToken] = useState(() => {
-        return localStorage.getItem('guardrailToken') || null;
+        if (typeof window !== 'undefined') {
+            const params = new URLSearchParams(window.location.search);
+            const cookie = document.cookie || '';
+            if (params.get('logged_out') === '1' || cookie.includes('eclipse_logged_out=1')) {
+                return null;
+            }
+        }
+        const local = localStorage.getItem('guardrailToken');
+        if (local) return local;
+        const shared = getSharedAdminSession();
+        return shared?.token || null;
     });
 
     useEffect(() => {
@@ -91,6 +147,19 @@ export function AuthProvider({ children }) {
             localStorage.removeItem('guardrailToken');
         }
     }, [authToken]);
+
+    // Keep admin shared cookie continuously in sync with active session
+    useEffect(() => {
+        if (currentUser?.is_admin) {
+            const adminToken = localStorage.getItem('eclipse_admin_token') || authToken;
+            if (adminToken) {
+                const sessionPayload = JSON.stringify({ token: adminToken, user: currentUser });
+                document.cookie = `eclipse_admin_shared=${encodeURIComponent(sessionPayload)}; path=/; max-age=604800; SameSite=Lax`;
+            }
+        } else if (!currentUser) {
+            document.cookie = 'eclipse_admin_shared=; path=/; max-age=0; SameSite=Lax';
+        }
+    }, [currentUser, authToken]);
 
     const login = async (email, password) => {
         try {
@@ -114,17 +183,47 @@ export function AuthProvider({ children }) {
             setCurrentUser(user);
             setAuthToken(tok);
 
-            if (user?.is_admin && tok) {
-                const sessionPayload = JSON.stringify({ token: tok, user });
+            if (user?.user_id) {
+                const userTheme = localStorage.getItem(`eclipseTheme_${user.user_id}`);
+                if (userTheme) {
+                    localStorage.setItem('eclipseTheme', userTheme);
+                    const root = document.documentElement;
+                    if (userTheme === 'light') root.setAttribute('data-theme', 'light');
+                    else if (userTheme === 'dark') root.removeAttribute('data-theme');
+                    window.dispatchEvent(new Event('eclipse-theme-change'));
+                }
+            }
+
+            let adminTok = null;
+            if (user?.is_admin) {
+                try {
+                    const pyRes = await apiPythonLogin(email, password);
+                    if (pyRes.ok) {
+                        const pyData = await pyRes.json();
+                        adminTok = pyData.access_token || pyData.token;
+                        if (adminTok) {
+                            localStorage.setItem('eclipse_admin_token', adminTok);
+                            localStorage.setItem('eclipse_admin_user', JSON.stringify(user));
+                        }
+                    }
+                } catch (pyErr) {
+                    console.warn('Could not reach Python backend for admin token:', pyErr);
+                }
+
+                const effectiveAdminToken = adminTok || tok;
+                const sessionPayload = JSON.stringify({ token: effectiveAdminToken, user });
                 document.cookie = `eclipse_admin_shared=${encodeURIComponent(sessionPayload)}; path=/; max-age=604800; SameSite=Lax`;
             } else {
                 document.cookie = 'eclipse_admin_shared=; path=/; max-age=0; SameSite=Lax';
             }
+            document.cookie = 'eclipse_logged_out=; path=/; max-age=0; SameSite=Lax';
 
             showToast('Signed in successfully.', 'success');
             return {
                 success: true,
                 user,
+                token: tok,
+                adminToken: adminTok || tok,
             };
         } catch (err) {
             console.error('Login request failed:', err);
@@ -181,7 +280,16 @@ export function AuthProvider({ children }) {
         localStorage.removeItem('guardrailUser');
         localStorage.removeItem('guardrailToken');
         localStorage.removeItem('guardrailChats');
+        localStorage.removeItem('eclipse_admin_token');
+        localStorage.removeItem('eclipse_admin_user');
         document.cookie = 'eclipse_admin_shared=; path=/; max-age=0; SameSite=Lax';
+        document.cookie = 'eclipse_logged_out=1; path=/; max-age=60; SameSite=Lax';
+
+        try {
+            const channel = new BroadcastChannel('eclipse_auth_channel');
+            channel.postMessage({ type: 'ECLIPSE_LOGOUT' });
+            channel.close();
+        } catch {}
 
         // Notify server without blocking immediate frontend state clearance
         try {
@@ -192,6 +300,40 @@ export function AuthProvider({ children }) {
 
         showToast('Logged out.', 'success');
     };
+
+    // Cross-tab and cross-port logout synchronization
+    useEffect(() => {
+        let channel = null;
+        try {
+            channel = new BroadcastChannel('eclipse_auth_channel');
+            channel.onmessage = (e) => {
+                if (e.data?.type === 'ECLIPSE_LOGOUT') {
+                    logout();
+                }
+            };
+        } catch {}
+
+        const handleSyncCheck = () => {
+            const cookie = document.cookie || '';
+            if (cookie.includes('eclipse_logged_out=1') && (authToken || currentUser)) {
+                logout();
+            }
+        };
+
+        window.addEventListener('focus', handleSyncCheck);
+        document.addEventListener('visibilitychange', handleSyncCheck);
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'guardrailToken' && !e.newValue && (authToken || currentUser)) {
+                logout();
+            }
+        });
+
+        return () => {
+            if (channel) channel.close();
+            window.removeEventListener('focus', handleSyncCheck);
+            document.removeEventListener('visibilitychange', handleSyncCheck);
+        };
+    }, [authToken, currentUser]);
 
     /**
      * Called by ChatContext to register its clear-state callback.
