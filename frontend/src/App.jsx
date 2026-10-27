@@ -83,7 +83,7 @@ export default function App() {
         const params = new URLSearchParams(window.location.search);
 
         if (params.get('logged_out') === '1') {
-            if (logout) logout();
+            if (!currentUser && logout) logout();
         }
 
         if (currentUser?.user_id) {

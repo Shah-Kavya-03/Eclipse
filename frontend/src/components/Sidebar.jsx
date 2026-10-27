@@ -170,11 +170,17 @@ export default function Sidebar({
                             const baseUrl = `http://${hostname}:5174/admin`;
                             let url = baseUrl;
                             if (currentUser?.is_admin) {
+                                try {
+                                    document.cookie = 'eclipse_logged_out=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
+                                    document.cookie = 'eclipse_logged_out=; path=/admin; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
+                                } catch {}
                                 const token = localStorage.getItem('eclipse_admin_token') || authToken;
                                 const currentTheme = localStorage.getItem(`eclipseTheme_${currentUser.user_id}`) || localStorage.getItem('eclipseTheme') || 'dark';
                                 const payload = encodeURIComponent(JSON.stringify({ token, user: currentUser, theme: currentTheme }));
                                 url = `${baseUrl}#session=${payload}`;
-                                document.cookie = `eclipse_admin_shared=${payload}; path=/; max-age=604800; SameSite=Lax`;
+                                try {
+                                    document.cookie = `eclipse_admin_shared=${payload}; path=/; max-age=604800; SameSite=Lax`;
+                                } catch {}
                             }
                             window.location.href = url;
                         }}

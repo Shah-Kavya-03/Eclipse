@@ -8,11 +8,16 @@ const AuthContext = createContext(null);
 const TOKEN_KEY = 'eclipse_admin_token';
 const USER_KEY  = 'eclipse_admin_user';
 
+function clearLoggedOutCookie() {
+  try {
+    document.cookie = 'eclipse_logged_out=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
+    document.cookie = 'eclipse_logged_out=; path=/admin; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
+  } catch {}
+}
+
 function getSharedCookieSession() {
   try {
-    if (typeof document !== 'undefined' && document.cookie.includes('eclipse_logged_out=1')) {
-      return null;
-    }
+    if (typeof document === 'undefined') return null;
     const match = document.cookie.match(/(?:^|;\s*)eclipse_admin_shared=([^;]*)/);
     if (match && match[1]) {
       const decoded = decodeURIComponent(match[1]);
@@ -30,17 +35,12 @@ function getSharedCookieSession() {
 function getSessionFromUrl() {
   try {
     if (typeof window === 'undefined') return null;
-    if (typeof document !== 'undefined' && document.cookie.includes('eclipse_logged_out=1')) {
-      return null;
-    }
     const hash = window.location.hash || '';
     const match = hash.match(/(?:#|&)(?:shared_session|session)=([^&]+)/);
     if (match && match[1]) {
       const decoded = decodeURIComponent(match[1]);
       const parsed = JSON.parse(decoded);
       if (parsed?.token && parsed?.user?.is_admin) {
-        const cleanUrl = window.location.pathname + window.location.search;
-        window.history.replaceState(null, '', cleanUrl);
         return parsed;
       }
     }
@@ -50,59 +50,65 @@ function getSessionFromUrl() {
   return null;
 }
 
-export function AuthProvider({ children }) {
-  const [user, setUser] = useState(() => {
-    if (typeof document !== 'undefined' && document.cookie.includes('eclipse_logged_out=1')) {
-      try {
-        localStorage.removeItem(USER_KEY);
-        localStorage.removeItem(TOKEN_KEY);
-      } catch {}
-      return null;
-    }
+function resolveInitialAdminSession() {
+  // 1. Explicit incoming URL hash session (highest priority)
+  const urlSession = getSessionFromUrl();
+  if (urlSession?.token && urlSession?.user?.is_admin) {
+    clearLoggedOutCookie();
     try {
-      const local = JSON.parse(localStorage.getItem(USER_KEY));
-      if (local && local.is_admin) return local;
+      localStorage.setItem(USER_KEY, JSON.stringify(urlSession.user));
+      localStorage.setItem(TOKEN_KEY, urlSession.token);
+      document.cookie = `eclipse_admin_shared=${encodeURIComponent(JSON.stringify(urlSession))}; path=/; max-age=604800; SameSite=Lax`;
     } catch {}
-    const urlSession = getSessionFromUrl();
-    if (urlSession?.user) {
-      try {
-        localStorage.setItem(USER_KEY, JSON.stringify(urlSession.user));
-        localStorage.setItem(TOKEN_KEY, urlSession.token);
-        document.cookie = `eclipse_admin_shared=${encodeURIComponent(JSON.stringify(urlSession))}; path=/; max-age=604800; SameSite=Lax`;
-      } catch {}
-      return urlSession.user;
-    }
-    const shared = getSharedCookieSession();
-    if (shared?.user) {
-      try {
-        localStorage.setItem(USER_KEY, JSON.stringify(shared.user));
-        localStorage.setItem(TOKEN_KEY, shared.token);
-      } catch {}
-      return shared.user;
-    }
-    return null;
-  });
+    return urlSession;
+  }
 
-  const [token, setToken] = useState(() => {
-    if (typeof document !== 'undefined' && document.cookie.includes('eclipse_logged_out=1')) {
-      return null;
+  // 2. If explicitly logged out and no fresh URL session arrived, respect logout
+  if (typeof document !== 'undefined' && document.cookie.includes('eclipse_logged_out=1')) {
+    try {
+      localStorage.removeItem(USER_KEY);
+      localStorage.removeItem(TOKEN_KEY);
+    } catch {}
+    return null;
+  }
+
+  // 3. Stored localStorage session
+  try {
+    const localUser = JSON.parse(localStorage.getItem(USER_KEY));
+    const localTok = localStorage.getItem(TOKEN_KEY);
+    if (localUser?.is_admin && localTok) {
+      return { user: localUser, token: localTok };
     }
-    const local = localStorage.getItem(TOKEN_KEY);
-    if (local) return local;
-    const urlSession = getSessionFromUrl();
-    if (urlSession?.token) return urlSession.token;
-    const shared = getSharedCookieSession();
-    return shared?.token || null;
-  });
+  } catch {}
+
+  // 4. Shared cookie session
+  const shared = getSharedCookieSession();
+  if (shared?.token && shared?.user?.is_admin) {
+    clearLoggedOutCookie();
+    try {
+      localStorage.setItem(USER_KEY, JSON.stringify(shared.user));
+      localStorage.setItem(TOKEN_KEY, shared.token);
+    } catch {}
+    return shared;
+  }
+
+  return null;
+}
+
+export function AuthProvider({ children }) {
+  const initialSessionRef = React.useRef(null);
+  if (!initialSessionRef.current) {
+    initialSessionRef.current = resolveInitialAdminSession();
+  }
+  const initialSession = initialSessionRef.current;
+
+  const [user, setUser] = useState(() => initialSession?.user || null);
+  const [token, setToken] = useState(() => initialSession?.token || null);
 
   const isLoggedOutRef = React.useRef(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [initialChecking, setInitialChecking] = useState(() => {
-    const hasSyncSession = Boolean(
-      (localStorage.getItem(TOKEN_KEY) && localStorage.getItem(USER_KEY)) ||
-      getSessionFromUrl() ||
-      getSharedCookieSession()
-    );
+    const hasSyncSession = Boolean(initialSession?.token && initialSession?.user);
     return !hasSyncSession && typeof window !== 'undefined' && Boolean(window.opener);
   });
   const [error, setError] = useState(null);
@@ -110,6 +116,17 @@ export function AuthProvider({ children }) {
   const loading = actionLoading || initialChecking;
   const isAuthenticated = Boolean(token && user);
   const isAdmin = user?.is_admin === true;
+
+  // Clean URL session hash after initial mount to keep address bar clean
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.hash) {
+      const match = window.location.hash.match(/(?:#|&)(?:shared_session|session)=([^&]+)/);
+      if (match) {
+        const cleanUrl = window.location.pathname + window.location.search;
+        window.history.replaceState(null, '', cleanUrl);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     if (!initialChecking) return;
@@ -250,6 +267,11 @@ export function AuthProvider({ children }) {
     } catch {}
 
     const handleSyncCheck = () => {
+      // If active session is valid, clear any stale logout cookie rather than signing out
+      if (token && user?.is_admin) {
+        clearLoggedOutCookie();
+        return;
+      }
       const cookie = document.cookie || '';
       if (cookie.includes('eclipse_logged_out=1') && (token || user)) {
         logout();

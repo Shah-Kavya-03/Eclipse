@@ -44,6 +44,12 @@ export default function LoginModal({ isOpen, onClose, onOpenSignup }) {
                 const token = res.adminToken || localStorage.getItem('eclipse_admin_token') || res.token || localStorage.getItem('guardrailToken');
                 const user = res.user;
                 const currentTheme = localStorage.getItem(`eclipseTheme_${user.user_id}`) || localStorage.getItem('eclipseTheme') || 'dark';
+                try {
+                    document.cookie = 'eclipse_logged_out=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
+                    document.cookie = 'eclipse_logged_out=; path=/admin; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
+                    const sessionPayload = JSON.stringify({ token, user, theme: currentTheme });
+                    document.cookie = `eclipse_admin_shared=${encodeURIComponent(sessionPayload)}; path=/; max-age=604800; SameSite=Lax`;
+                } catch {}
                 const payload = encodeURIComponent(JSON.stringify({ token, user, theme: currentTheme }));
                 window.location.href = `${baseUrl}#session=${payload}`;
                 return;

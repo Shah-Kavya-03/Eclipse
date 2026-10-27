@@ -68,9 +68,16 @@ export function Sidebar({ collapsed, onToggle }) {
             const hostname = window.location.hostname || 'localhost';
             let url = `http://${hostname}:5173/`;
             if (token && user) {
+              try {
+                document.cookie = 'eclipse_logged_out=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
+                document.cookie = 'eclipse_logged_out=; path=/admin; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
+              } catch {}
               const currentTheme = localStorage.getItem('eclipse_admin_theme') || 'dark';
               const payload = encodeURIComponent(JSON.stringify({ token, user, theme: currentTheme }));
               url = `http://${hostname}:5173/#session=${payload}`;
+              try {
+                document.cookie = `eclipse_admin_shared=${payload}; path=/; max-age=604800; SameSite=Lax`;
+              } catch {}
             }
             window.location.href = url;
           }}

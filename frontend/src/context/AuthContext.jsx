@@ -4,29 +4,38 @@ import { useToast } from './ToastContext';
 
 const AuthContext = createContext(null);
 
+function clearLoggedOutCookie() {
+    try {
+        document.cookie = 'eclipse_logged_out=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
+        document.cookie = 'eclipse_logged_out=; path=/admin; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
+    } catch {}
+}
+
 function getSharedAdminSession() {
     try {
         if (typeof window !== 'undefined') {
-            const params = new URLSearchParams(window.location.search);
-            const cookie = document.cookie || '';
-            if (params.get('logged_out') === '1' || cookie.includes('eclipse_logged_out=1')) {
-                return null;
-            }
             const hash = window.location.hash || '';
             const match = hash.match(/(?:#|&)(?:shared_session|session)=([^&]+)/);
             if (match && match[1]) {
                 const parsed = JSON.parse(decodeURIComponent(match[1]));
                 if (parsed?.user) {
-                    const cleanUrl = window.location.pathname + window.location.search;
-                    window.history.replaceState(null, '', cleanUrl);
+                    clearLoggedOutCookie();
                     return parsed;
                 }
+            }
+            const params = new URLSearchParams(window.location.search);
+            const cookie = document.cookie || '';
+            if (params.get('logged_out') === '1' || cookie.includes('eclipse_logged_out=1')) {
+                return null;
             }
         }
         const cookieMatch = document.cookie.match(/(?:^|;\s*)eclipse_admin_shared=([^;]*)/);
         if (cookieMatch && cookieMatch[1]) {
             const parsed = JSON.parse(decodeURIComponent(cookieMatch[1]));
-            if (parsed?.user) return parsed;
+            if (parsed?.user) {
+                clearLoggedOutCookie();
+                return parsed;
+            }
         }
     } catch {}
     return null;
@@ -85,6 +94,10 @@ export function AuthProvider({ children }) {
     const onLogoutRef = useRef(null);
 
     const [currentUser, setCurrentUser] = useState(() => {
+        const shared = getSharedAdminSession();
+        if (shared?.user) {
+            return normalizeUser(shared.user);
+        }
         if (typeof window !== 'undefined') {
             const params = new URLSearchParams(window.location.search);
             const cookie = document.cookie || '';
@@ -111,14 +124,12 @@ export function AuthProvider({ children }) {
                 return null;
             }
         }
-        const shared = getSharedAdminSession();
-        if (shared?.user) {
-            return normalizeUser(shared.user);
-        }
         return null;
     });
 
     const [authToken, setAuthToken] = useState(() => {
+        const shared = getSharedAdminSession();
+        if (shared?.token) return shared.token;
         if (typeof window !== 'undefined') {
             const params = new URLSearchParams(window.location.search);
             const cookie = document.cookie || '';
@@ -128,9 +139,19 @@ export function AuthProvider({ children }) {
         }
         const local = localStorage.getItem('guardrailToken');
         if (local) return local;
-        const shared = getSharedAdminSession();
-        return shared?.token || null;
+        return null;
     });
+
+    // Clean URL session hash after initial mount
+    useEffect(() => {
+        if (typeof window !== 'undefined' && window.location.hash) {
+            const match = window.location.hash.match(/(?:#|&)(?:shared_session|session)=([^&]+)/);
+            if (match) {
+                const cleanUrl = window.location.pathname + window.location.search;
+                window.history.replaceState(null, '', cleanUrl);
+            }
+        }
+    }, []);
 
     useEffect(() => {
         if (currentUser) {
@@ -216,7 +237,7 @@ export function AuthProvider({ children }) {
             } else {
                 document.cookie = 'eclipse_admin_shared=; path=/; max-age=0; SameSite=Lax';
             }
-            document.cookie = 'eclipse_logged_out=; path=/; max-age=0; SameSite=Lax';
+            clearLoggedOutCookie();
 
             showToast('Signed in successfully.', 'success');
             return {
@@ -314,8 +335,13 @@ export function AuthProvider({ children }) {
         } catch {}
 
         const handleSyncCheck = () => {
+            // If user has an active session, purge any lingering logout cookie
+            if (authToken || currentUser) {
+                clearLoggedOutCookie();
+                return;
+            }
             const cookie = document.cookie || '';
-            if (cookie.includes('eclipse_logged_out=1') && (authToken || currentUser)) {
+            if (cookie.includes('eclipse_logged_out=1')) {
                 logout();
             }
         };
