@@ -8,7 +8,7 @@ const internalSecret =
 
 const apiClient = axios.create({
   baseURL: pythonBaseUrl,
-  timeout: 45000,
+  timeout: 60000,
   headers: {
     "Content-Type": "application/json",
     "X-Internal-Secret": internalSecret,

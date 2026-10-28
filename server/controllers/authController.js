@@ -6,8 +6,13 @@ const User = require("../models/User");
  * Generate signed JWT token.
  */
 const generateToken = (userId) => {
+  const idStr = userId.toString();
   return jwt.sign(
-    { user_id: userId.toString(), id: userId.toString() },
+    {
+      sub: idStr,          // Standard claim required by Python FastAPI
+      user_id: idStr,      // Claim expected by Node server
+      id: idStr            // Alternative identifier
+    },
     process.env.JWT_SECRET || "eclipse_default_jwt_secret_key",
     {
       expiresIn: process.env.JWT_EXPIRES_IN || "7d",

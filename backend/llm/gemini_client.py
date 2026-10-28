@@ -19,8 +19,8 @@ load_dotenv(_env_path)
 _DEFAULT_MODELS = [
     os.getenv("GEMINI_MODEL", "gemini-3.8-flash"),
     "gemini-3.8-flash",
-    "gemini-2.5-flash",
-    "gemini-1.5-flash",
+    "gemini-2.0-flash",
+    "gemini-1.5-pro",
 ]
 
 
@@ -68,6 +68,7 @@ def send(messages: list[dict]) -> dict:
         except Exception as e:
             last_error = e
             error_str = str(e).lower()
+            print(f"[gemini_client] Model '{model_name}' attempt failed: {e}")
             if "429" in error_str or "rate limit" in error_str or "quota" in error_str:
                 return {"text": None, "error": {"type": "rate_limit", "message": str(e)}}
             if "404" in error_str or "not found" in error_str or "no longer available" in error_str:

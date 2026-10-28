@@ -19,7 +19,7 @@ import './css/light-theme.css';
 
 export default function App() {
     const { currentUser, logout } = useAuth();
-    const { openConversation, renameConversation, deleteConversation, refreshConversationsFromBackend } = useChat();
+    const { openConversation, renameConversation, deleteConversation } = useChat();
 
     // Navigation: 'chat' | 'audit'
     const [currentPage, setCurrentPage] = useState(() => {
@@ -78,20 +78,15 @@ export default function App() {
         return () => window.removeEventListener('popstate', handlePopState);
     }, []);
 
-    // Handle query params on initial load
+    // Run only ONCE on initial mount — do not depend on unstable context callbacks
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
 
         if (params.get('logged_out') === '1') {
-            if (!currentUser && logout) logout();
-        }
-
-        if (currentUser?.user_id) {
-            refreshConversationsFromBackend();
-        }
-
-        if (params.get('auth') === 'login' && !currentUser) {
-            setIsLoginOpen(true);
+            window.history.replaceState({}, '', window.location.pathname);
+            if (!currentUser && logout) {
+                logout(true);
+            }
         }
 
         const openId = params.get('open');
@@ -100,10 +95,14 @@ export default function App() {
             setCurrentPage('chat');
         }
 
+        if (params.get('auth') === 'login' && !currentUser) {
+            setIsLoginOpen(true);
+        }
+
         if (params.toString()) {
             window.history.replaceState({}, '', window.location.pathname + window.location.hash);
         }
-    }, [currentUser, logout, openConversation, refreshConversationsFromBackend]);
+    }, []); // Empty dependency array ensures it runs once on mount
 
     // Secure cross-window session sharing for Admin Dashboard (port 5174)
     useEffect(() => {

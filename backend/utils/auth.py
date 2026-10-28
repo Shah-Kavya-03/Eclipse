@@ -79,13 +79,20 @@ async def get_current_user_id(
         )
 
     payload = decode_access_token(credentials.credentials)
-    if payload is None or "sub" not in payload:
+    if payload is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token.",
         )
 
-    return payload["sub"]
+    user_id = payload.get("sub") or payload.get("user_id") or payload.get("id")
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload: missing user identity (sub/user_id).",
+        )
+
+    return str(user_id)
 
 
 async def get_current_admin_user_id(

@@ -5,9 +5,9 @@ _BASE_URL = "https://api.cerebras.ai/v1"
 
 
 _DEFAULT_MODELS = [
-    os.getenv("CEREBRAS_MODEL", "gpt-oss-120b"),
-    "gpt-oss-120b",
-    "qwen-3.8-27b",
+    os.getenv("CEREBRAS_MODEL", "llama-3.1-8b"),
+    "llama-3.1-8b",
+    "llama-3.3-70b",
 ]
 
 

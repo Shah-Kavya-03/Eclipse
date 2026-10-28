@@ -122,20 +122,23 @@ export function ChatProvider({ children }) {
         (c) => String(c.id) === String(currentConversationId)
     ) || null;
 
+    const conversationsRef = useRef(conversations);
+    useEffect(() => {
+        conversationsRef.current = conversations;
+    }, [conversations]);
+
     const openConversation = useCallback(
         async (id) => {
             setCurrentConversationId(id);
-            const chat = conversations.find((c) => String(c.id) === String(id));
+            const chat = conversationsRef.current.find((c) => String(c.id) === String(id));
             if (!chat) return;
 
             const sessionToken = activeSessionRef.current;
             const currentUserId = activeUserIdRef.current;
 
-            // Lazy load messages if needed
             if (chat.loaded === false) {
                 try {
                     const data = await apiGetConversation(id);
-                    // Discard response if session changed or user logged out
                     if (activeSessionRef.current !== sessionToken || activeUserIdRef.current !== currentUserId) {
                         return;
                     }
@@ -158,7 +161,7 @@ export function ChatProvider({ children }) {
                 }
             }
         },
-        [conversations]
+        [] // Stable callback — does NOT re-create when conversations change
     );
 
     const newChat = useCallback(() => {
@@ -222,8 +225,8 @@ export function ChatProvider({ children }) {
                 const replyText = data.response
                     ? data.response
                     : data.blocked_reason ||
-                      data.lime_explanation ||
-                      'Your message could not be processed.';
+                    data.lime_explanation ||
+                    'Your message could not be processed.';
 
                 const aiMessage = {
                     sender: 'ai',

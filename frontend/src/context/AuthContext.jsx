@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { apiLogin, apiPythonLogin, apiSignup, apiLogout } from '../api/config';
 import { useToast } from './ToastContext';
 
@@ -284,8 +284,13 @@ export function AuthProvider({ children }) {
         }
     };
 
-    const logout = async () => {
-        // Priority 1: Clear conversation state immediately on logout before any async calls
+    const logout = useCallback(async (isRemoteBroadcast = false) => {
+        // 1. Guard against duplicate/redundant logouts
+        if (!currentUser && !localStorage.getItem('guardrailToken')) {
+            clearLoggedOutCookie();
+            return;
+        }
+
         if (onLogoutRef.current) {
             try {
                 onLogoutRef.current();
@@ -293,34 +298,34 @@ export function AuthProvider({ children }) {
                 console.warn('Error clearing conversation state on logout:', err);
             }
         }
-        // Immediately reset user session state in memory
+
         setCurrentUser(null);
         setAuthToken(null);
 
-        // Immediately purge user credentials and chat storage from localStorage
         localStorage.removeItem('guardrailUser');
         localStorage.removeItem('guardrailToken');
         localStorage.removeItem('guardrailChats');
         localStorage.removeItem('eclipse_admin_token');
         localStorage.removeItem('eclipse_admin_user');
-        document.cookie = 'eclipse_admin_shared=; path=/; max-age=0; SameSite=Lax';
-        document.cookie = 'eclipse_logged_out=1; path=/; max-age=60; SameSite=Lax';
+        clearLoggedOutCookie();
 
-        try {
-            const channel = new BroadcastChannel('eclipse_auth_channel');
-            channel.postMessage({ type: 'ECLIPSE_LOGOUT' });
-            channel.close();
-        } catch {}
+        // 2. Only broadcast to OTHER tabs if this wasn't triggered by an incoming broadcast
+        if (!isRemoteBroadcast) {
+            try {
+                const channel = new BroadcastChannel('eclipse_auth_channel');
+                channel.postMessage({ type: 'ECLIPSE_LOGOUT' });
+                channel.close();
+            } catch {}
+        }
 
-        // Notify server without blocking immediate frontend state clearance
         try {
             await apiLogout();
         } catch (err) {
-            console.warn('Logout request failed (clearing local session anyway):', err);
+            console.warn('Logout request failed:', err);
         }
 
         showToast('Logged out.', 'success');
-    };
+    }, [currentUser]);
 
     // Cross-tab and cross-port logout synchronization
     useEffect(() => {
@@ -329,20 +334,19 @@ export function AuthProvider({ children }) {
             channel = new BroadcastChannel('eclipse_auth_channel');
             channel.onmessage = (e) => {
                 if (e.data?.type === 'ECLIPSE_LOGOUT') {
-                    logout();
+                    logout(true); // isRemoteBroadcast = true prevents re-broadcasting
                 }
             };
         } catch {}
 
         const handleSyncCheck = () => {
-            // If user has an active session, purge any lingering logout cookie
             if (authToken || currentUser) {
                 clearLoggedOutCookie();
                 return;
             }
             const cookie = document.cookie || '';
-            if (cookie.includes('eclipse_logged_out=1')) {
-                logout();
+            if (cookie.includes('eclipse_logged_out=1') && (authToken || currentUser)) {
+                logout(true);
             }
         };
 
@@ -350,7 +354,7 @@ export function AuthProvider({ children }) {
         document.addEventListener('visibilitychange', handleSyncCheck);
         window.addEventListener('storage', (e) => {
             if (e.key === 'guardrailToken' && !e.newValue && (authToken || currentUser)) {
-                logout();
+                logout(true);
             }
         });
 
@@ -359,7 +363,7 @@ export function AuthProvider({ children }) {
             window.removeEventListener('focus', handleSyncCheck);
             document.removeEventListener('visibilitychange', handleSyncCheck);
         };
-    }, [authToken, currentUser]);
+    }, [logout, authToken, currentUser]);
 
     /**
      * Called by ChatContext to register its clear-state callback.

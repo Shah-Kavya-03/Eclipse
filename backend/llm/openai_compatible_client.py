@@ -53,7 +53,7 @@ def send(
 
     for m in models:
         try:
-            client = OpenAI(api_key=api_key, base_url=base_url)
+            client = OpenAI(api_key=api_key, base_url=base_url, timeout=12.0, max_retries=1)
             response = client.chat.completions.create(
                 model=m,
                 messages=messages,
@@ -61,10 +61,12 @@ def send(
             return {"text": response.choices[0].message.content, "error": None}
 
         except RateLimitError as e:
+            print(f"[{api_key_env_var}] Model '{m}' rate-limited: {e}")
             return {"text": None, "error": {"type": "rate_limit", "message": str(e)}}
         except (APIError, Exception) as e:
             last_error = e
             error_str = str(e).lower()
+            print(f"[{api_key_env_var}] Model '{m}' attempt failed: {e}")
             if "429" in error_str or "rate limit" in error_str or "quota" in error_str:
                 return {"text": None, "error": {"type": "rate_limit", "message": str(e)}}
             if (
