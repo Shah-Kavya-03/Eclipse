@@ -2,10 +2,10 @@
 FastAPI entry point for the Real-time LLM Input/Output Guardrail backend.
 
 Run with:
-    uvicorn main:app --reload --port 8000
+    uvicorn main:app --reload --port 8001
 
 Docs at:
-    http://localhost:8000/docs
+    http://localhost:8001/docs
 """
 
 import os

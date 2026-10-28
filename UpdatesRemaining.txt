@@ -1,0 +1,636 @@
+================================================================================
+ECLIPSE GUARDRAIL — REMAINING UPDATES & IMPLEMENTATION SPECIFICATION
+================================================================================
+
+This document contains complete, drop-in implementation details for all 6 tasks:
+1. Fix Frontend React Loops & Sync Bugs (Infinite GET & Logout loops)
+2. Fix Cross-Service Auth & JWT Compatibility (sub claim & CORS alignment)
+3. Initialize Admin Endpoints in Express Gateway (MERN V2 Unification)
+4. Integrate Prompt Injection ML Model (DeBERTa-v3 Hybrid Pipeline)
+5. Update Project Documentation (README.md)
+6. Multi-Tier Production Cloud Deployment (Atlas + Render/HF + Vercel)
+
+================================================================================
+TASK 1: FIX FRONTEND REACT LOOPS & SYNC BUGS
+================================================================================
+
+--------------------------------------------------------------------------------
+File 1.1: frontend/src/App.jsx
+Target: Break the infinite GET loop caused by dependency re-triggers
+--------------------------------------------------------------------------------
+Replace the initial query param / conversations useEffect (lines 82-106) with:
+
+```javascript
+// Run only ONCE on initial mount — do not depend on unstable context callbacks
+useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+
+    if (params.get('logged_out') === '1') {
+        window.history.replaceState({}, '', window.location.pathname);
+        if (!currentUser && logout) {
+            logout(true);
+        }
+    }
+
+    const openId = params.get('open');
+    if (openId) {
+        openConversation(openId);
+        setCurrentPage('chat');
+    }
+
+    if (params.get('auth') === 'login' && !currentUser) {
+        setIsLoginOpen(true);
+    }
+
+    if (params.toString()) {
+        window.history.replaceState({}, '', window.location.pathname + window.location.hash);
+    }
+}, []); // Empty dependency array ensures it runs once on mount
+```
+
+--------------------------------------------------------------------------------
+File 1.2: frontend/src/context/ChatContext.jsx
+Target: Stabilize openConversation reference using a ref
+--------------------------------------------------------------------------------
+Keep a ref synchronized with conversations state:
+
+```javascript
+const conversationsRef = useRef(conversations);
+useEffect(() => {
+    conversationsRef.current = conversations;
+}, [conversations]);
+
+const openConversation = useCallback(
+    async (id) => {
+        setCurrentConversationId(id);
+        const chat = conversationsRef.current.find((c) => String(c.id) === String(id));
+        if (!chat) return;
+
+        const sessionToken = activeSessionRef.current;
+        const currentUserId = activeUserIdRef.current;
+
+        if (chat.loaded === false) {
+            try {
+                const data = await apiGetConversation(id);
+                if (activeSessionRef.current !== sessionToken || activeUserIdRef.current !== currentUserId) {
+                    return;
+                }
+                const loadedMessages = (data.messages || []).map((m) => ({
+                    sender: m.sender === 'assistant' ? 'ai' : 'user',
+                    text: m.text
+                }));
+                setConversations((prev) => {
+                    if (activeSessionRef.current !== sessionToken || activeUserIdRef.current !== currentUserId) {
+                        return [];
+                    }
+                    return prev.map((c) =>
+                        String(c.id) === String(id)
+                            ? { ...c, messages: loadedMessages, loaded: true }
+                            : c
+                    );
+                });
+            } catch (err) {
+                console.error('Failed to load conversation history:', err);
+            }
+        }
+    },
+    [] // Stable callback — does NOT re-create when conversations change
+);
+```
+
+--------------------------------------------------------------------------------
+File 1.3: frontend/src/context/AuthContext.jsx
+Target: Guard logout, eliminate same-tab broadcast echo, and handle cookies
+--------------------------------------------------------------------------------
+Update the `logout` function and synchronization listeners:
+
+```javascript
+const logout = useCallback(async (isRemoteBroadcast = false) => {
+    // 1. Guard against duplicate/redundant logouts
+    if (!currentUser && !localStorage.getItem('guardrailToken')) {
+        clearLoggedOutCookie();
+        return;
+    }
+
+    if (onLogoutRef.current) {
+        try {
+            onLogoutRef.current();
+        } catch (err) {
+            console.warn('Error clearing conversation state on logout:', err);
+        }
+    }
+
+    setCurrentUser(null);
+    setAuthToken(null);
+
+    localStorage.removeItem('guardrailUser');
+    localStorage.removeItem('guardrailToken');
+    localStorage.removeItem('guardrailChats');
+    localStorage.removeItem('eclipse_admin_token');
+    localStorage.removeItem('eclipse_admin_user');
+    clearLoggedOutCookie();
+
+    // 2. Only broadcast to OTHER tabs if this wasn't triggered by an incoming broadcast
+    if (!isRemoteBroadcast) {
+        try {
+            const channel = new BroadcastChannel('eclipse_auth_channel');
+            channel.postMessage({ type: 'ECLIPSE_LOGOUT' });
+            channel.close();
+        } catch {}
+    }
+
+    try {
+        await apiLogout();
+    } catch (err) {
+        console.warn('Logout request failed:', err);
+    }
+
+    showToast('Logged out.', 'success');
+}, [currentUser]);
+
+// Cross-tab and cross-port logout synchronization
+useEffect(() => {
+    let channel = null;
+    try {
+        channel = new BroadcastChannel('eclipse_auth_channel');
+        channel.onmessage = (e) => {
+            if (e.data?.type === 'ECLIPSE_LOGOUT') {
+                logout(true); // isRemoteBroadcast = true prevents re-broadcasting
+            }
+        };
+    } catch {}
+
+    const handleSyncCheck = () => {
+        if (authToken || currentUser) {
+            clearLoggedOutCookie();
+            return;
+        }
+        const cookie = document.cookie || '';
+        if (cookie.includes('eclipse_logged_out=1') && (authToken || currentUser)) {
+            logout(true);
+        }
+    };
+
+    window.addEventListener('focus', handleSyncCheck);
+    document.addEventListener('visibilitychange', handleSyncCheck);
+    window.addEventListener('storage', (e) => {
+        if (e.key === 'guardrailToken' && !e.newValue && (authToken || currentUser)) {
+            logout(true);
+        }
+    });
+
+    return () => {
+        if (channel) channel.close();
+        window.removeEventListener('focus', handleSyncCheck);
+        document.removeEventListener('visibilitychange', handleSyncCheck);
+    };
+}, [logout, authToken, currentUser]);
+```
+
+
+================================================================================
+TASK 2: FIX CROSS-SERVICE AUTH & JWT COMPATIBILITY
+================================================================================
+
+--------------------------------------------------------------------------------
+File 2.1: server/controllers/authController.js
+Target: Include "sub" claim in Node.js JWT tokens
+--------------------------------------------------------------------------------
+Update `generateToken`:
+
+```javascript
+const generateToken = (userId) => {
+  const idStr = userId.toString();
+  return jwt.sign(
+    {
+      sub: idStr,          // Standard claim required by Python FastAPI
+      user_id: idStr,      // Claim expected by Node server
+      id: idStr            // Alternative identifier
+    },
+    process.env.JWT_SECRET || "eclipse_default_jwt_secret_key",
+    {
+      expiresIn: process.env.JWT_EXPIRES_IN || "7d",
+    }
+  );
+};
+```
+
+--------------------------------------------------------------------------------
+File 2.2: backend/utils/auth.py
+Target: Accept both "sub" and "user_id" in Python token verification
+--------------------------------------------------------------------------------
+Update `get_current_user_id`:
+
+```python
+async def get_current_user_id(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
+) -> str:
+    if credentials is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing Authorization header. Expected: Bearer <token>",
+        )
+
+    payload = decode_access_token(credentials.credentials)
+    if payload is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token.",
+        )
+
+    user_id = payload.get("sub") or payload.get("user_id") or payload.get("id")
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload: missing user identity (sub/user_id).",
+        )
+
+    return str(user_id)
+```
+
+--------------------------------------------------------------------------------
+File 2.3: backend/.env
+Target: Add User and Admin frontends to allowed CORS origins
+--------------------------------------------------------------------------------
+```env
+CORS_ORIGINS=http://localhost:5173,http://localhost:5174,http://localhost:5500,http://127.0.0.1:5173,http://127.0.0.1:5174,http://127.0.0.1:5500,http://127.0.0.1:8001
+```
+
+
+================================================================================
+TASK 3: INITIALIZE ADMIN ENDPOINTS IN EXPRESS GATEWAY
+================================================================================
+
+--------------------------------------------------------------------------------
+File 3.1: Create server/controllers/adminController.js
+Target: Native MERN implementation of admin routes
+--------------------------------------------------------------------------------
+```javascript
+const User = require("../models/User");
+const AuditLog = require("../models/AuditLog");
+const ApiUsage = require("../models/ApiUsage");
+const pythonMlClient = require("../services/pythonMlClient");
+
+/**
+ * @route   GET /api/admin/users
+ * @desc    Get all users with activity counts
+ * @access  Private (Admin)
+ */
+const getUsers = async (req, res) => {
+  try {
+    const users = await User.find({}).sort({ created_at: -1 }).lean();
+
+    const usersWithStats = await Promise.all(
+      users.map(async (u) => {
+        const userIdStr = u._id.toString();
+        const requestCount = await AuditLog.countDocuments({ user_id: userIdStr });
+        return {
+          user_id: userIdStr,
+          name: u.name,
+          email: u.email,
+          created_at: u.created_at ? new Date(u.created_at).toISOString() : null,
+          is_flagged: Boolean(u.is_flagged),
+          is_admin: Boolean(u.is_admin),
+          request_count: requestCount,
+        };
+      })
+    );
+
+    return res.json({ users: usersWithStats, count: usersWithStats.length });
+  } catch (error) {
+    console.error("[Admin getUsers Error]:", error);
+    return res.status(500).json({ success: false, detail: "Failed to fetch users." });
+  }
+};
+
+/**
+ * @route   GET /api/admin/stats
+ * @desc    System-wide statistics for Admin Dashboard
+ * @access  Private (Admin)
+ */
+const getAdminStats = async (req, res) => {
+  try {
+    const [
+      totalUsers,
+      flaggedUsers,
+      totalRequests,
+      statusAgg,
+      apiDocs
+    ] = await Promise.all([
+      User.countDocuments({}),
+      User.countDocuments({ is_flagged: true }),
+      AuditLog.countDocuments({}),
+      AuditLog.aggregate([{ $group: { _id: "$status", count: { $sum: 1 } } }]),
+      ApiUsage.find({}).lean()
+    ]);
+
+    // Unique conversations count from AuditLogs
+    const uniqueConversations = await AuditLog.distinct("session_id");
+
+    const statusBreakdown = {};
+    statusAgg.forEach((item) => {
+      if (item._id) statusBreakdown[item._id] = item.count;
+    });
+
+    const apiUsage = {};
+    apiDocs.forEach((doc) => {
+      apiUsage[doc.api_name.toLowerCase()] = {
+        requests: doc.requests_count || 0,
+        is_rate_limited: Boolean(doc.is_rate_limited),
+      };
+    });
+
+    // Anomaly count from Python microservice
+    let totalAnomalies = 0;
+    try {
+      const anomalyData = await pythonMlClient.getAnomalies();
+      totalAnomalies = (anomalyData.anomalies || []).length;
+    } catch {}
+
+    return res.json({
+      total_users: totalUsers,
+      flagged_users: flaggedUsers,
+      total_requests: totalRequests,
+      total_conversations: uniqueConversations.length,
+      total_anomalies: totalAnomalies,
+      status_breakdown: statusBreakdown,
+      api_usage: apiUsage,
+    });
+  } catch (error) {
+    console.error("[Admin getAdminStats Error]:", error);
+    return res.status(500).json({ success: false, detail: "Failed to compile admin stats." });
+  }
+};
+
+/**
+ * @route   GET /api/admin/anomalies
+ * @desc    Fetch detected anomalies via Python ML microservice
+ * @access  Private (Admin)
+ */
+const getAnomalies = async (req, res) => {
+  try {
+    const data = await pythonMlClient.getAnomalies();
+    return res.json(data);
+  } catch (error) {
+    console.error("[Admin getAnomalies Error]:", error);
+    return res.status(500).json({ success: false, detail: "Failed to fetch anomalies." });
+  }
+};
+
+/**
+ * @route   PUT /api/admin/user/:user_id/flag
+ * @desc    Toggle user flagged status
+ * @access  Private (Admin)
+ */
+const flagUser = async (req, res) => {
+  try {
+    const { user_id } = req.params;
+    const user = await User.findById(user_id);
+
+    if (!user) {
+      return res.status(404).json({ success: false, detail: "User not found." });
+    }
+
+    user.is_flagged = !user.is_flagged;
+    await user.save();
+
+    return res.json({
+      user_id: user._id.toString(),
+      is_flagged: user.is_flagged,
+    });
+  } catch (error) {
+    console.error("[Admin flagUser Error]:", error);
+    return res.status(500).json({ success: false, detail: "Failed to update user flag status." });
+  }
+};
+
+module.exports = {
+  getUsers,
+  getAdminStats,
+  getAnomalies,
+  flagUser,
+};
+```
+
+--------------------------------------------------------------------------------
+File 3.2: Create server/routes/adminRoutes.js
+Target: Mount admin endpoints with JWT and Admin validation
+--------------------------------------------------------------------------------
+```javascript
+const express = require("express");
+const router = express.Router();
+const { protect, adminOnly } = require("../middleware/authMiddleware");
+const {
+  getUsers,
+  getAdminStats,
+  getAnomalies,
+  flagUser,
+} = require("../controllers/adminController");
+
+// Restrict all routes below to authenticated Admins only
+router.use(protect, adminOnly);
+
+router.get("/users", getUsers);
+router.get("/stats", getAdminStats);
+router.get("/anomalies", getAnomalies);
+router.put("/user/:user_id/flag", flagUser);
+
+module.exports = router;
+```
+
+--------------------------------------------------------------------------------
+File 3.3: server/server.js
+Target: Register admin routes in the Express API Gateway
+--------------------------------------------------------------------------------
+Add to `server/server.js`:
+```javascript
+const adminRoutes = require("./routes/adminRoutes");
+
+app.use("/api/admin", adminRoutes);
+app.use("/admin", adminRoutes);
+```
+
+--------------------------------------------------------------------------------
+File 3.4: admin_frontend/src/api/dashboardApi.js & admin_frontend/src/api/client.js
+Target: Switch Admin Frontend to call Express Gateway instead of Python directly
+--------------------------------------------------------------------------------
+In `admin_frontend/src/api/dashboardApi.js`:
+```javascript
+import { nodeClient } from './client.js';
+
+export const dashboardApi = {
+  /** Admin-only stats (requires admin JWT from Express Gateway) */
+  async getAdminStats() {
+    const res = await nodeClient.get('/admin/stats');
+    return res.data;
+  },
+
+  /** Public dashboard stats */
+  async getDashboardStats() {
+    const res = await nodeClient.get('/dashboard-stats');
+    return res.data;
+  },
+};
+```
+
+
+================================================================================
+TASK 4: INTEGRATE PROMPT INJECTION ML MODEL
+================================================================================
+
+--------------------------------------------------------------------------------
+File 4.1: backend/requirements.txt
+Target: Add PyTorch and Hugging Face Transformers
+--------------------------------------------------------------------------------
+Add to `backend/requirements.txt`:
+```txt
+transformers>=4.40.0
+torch>=2.2.0
+```
+
+--------------------------------------------------------------------------------
+File 4.2: backend/.env
+Target: Enable ML mode
+--------------------------------------------------------------------------------
+```env
+INJECTION_DETECTOR_MODE=ml
+INJECTION_CONFIDENCE_THRESHOLD=0.70
+```
+
+--------------------------------------------------------------------------------
+File 4.3: backend/security/injection_detector.py
+Target: Hybrid fast-path regex + deep transformer ensemble
+--------------------------------------------------------------------------------
+Update `detect_injection`:
+```python
+def detect_injection(text: str) -> dict:
+    """
+    Hybrid Cascade Injection Detector:
+    1. Fast-path: Check regex rules. If severe match, block in <1ms.
+    2. Deep-path: If regex passes and mode=='ml', run DeBERTa-v3 model.
+    """
+    # 1. Always evaluate rule heuristics first (catches obvious/known attacks instantly)
+    rule_result = _detect_rules(text)
+    if rule_result["is_jailbreak"] or rule_result["is_injection"]:
+        return rule_result
+
+    # 2. If rules pass and ML mode is active, run DeBERTa-v3 semantic evaluation
+    if _MODE == "ml":
+        try:
+            return _detect_ml(text)
+        except Exception as e:
+            print(f"[Injection Detector ML Error]: {e} — falling back to rule result")
+            return rule_result
+
+    return rule_result
+```
+
+--------------------------------------------------------------------------------
+File 4.4: backend/main.py
+Target: Warmup ML model in FastAPI lifespan startup
+--------------------------------------------------------------------------------
+Update lifespan in `backend/main.py`:
+```python
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await connect_to_mongo()
+    if os.getenv("INJECTION_DETECTOR_MODE", "rules").lower() == "ml":
+        try:
+            from security.injection_detector import _get_ml_classifier
+            print("[ML Engine] Pre-warming DeBERTa prompt injection transformer model...")
+            _get_ml_classifier()
+            print("[ML Engine] DeBERTa model successfully loaded into memory.")
+        except Exception as e:
+            print(f"[ML Engine] Model warmup warning: {e}")
+    yield
+    await close_mongo_connection()
+```
+
+
+================================================================================
+TASK 5: UPDATE DOCUMENTATION (README.md)
+================================================================================
+
+Update `README.md` to reflect the 4-tier MERN + Python Microservice production topology:
+
+1. Update Architecture Table:
+   - User Frontend: Port 5173 (React 18 + Vite)
+   - Admin Frontend: Port 5174 (React 18 + Vite)
+   - Express Gateway: Port 5000 (Node.js + Express + Mongoose)
+   - Python ML Microservice: Port 8001 (FastAPI + PyTorch + Presidio)
+   - Database: Port 27017 (MongoDB)
+2. Document Express Admin Endpoints:
+   - `GET /api/admin/users`
+   - `GET /api/admin/stats`
+   - `GET /api/admin/anomalies`
+   - `PUT /api/admin/user/:user_id/flag`
+3. Document Prompt Injection Detection Configuration:
+   - `INJECTION_DETECTOR_MODE=rules` vs `INJECTION_DETECTOR_MODE=ml`
+   - Confidence threshold configuration.
+4. Add 4-Service Startup Commands.
+
+
+================================================================================
+TASK 6: MULTI-TIER PRODUCTION CLOUD DEPLOYMENT
+================================================================================
+
+Target Production Stack:
+- Database: MongoDB Atlas (M0 free or dedicated tier)
+- ML Microservice: Hugging Face Spaces (Docker SDK) or Render Web Service
+- API Gateway: Render / Railway / AWS ECS (Node.js)
+- Frontends: Vercel / Netlify
+
+--------------------------------------------------------------------------------
+Step 6.1: Database (MongoDB Atlas)
+--------------------------------------------------------------------------------
+1. Create a MongoDB Atlas cluster.
+2. In Database Access, create user with readWriteAnyDatabase.
+3. In Network Access, allow `0.0.0.0/0` (required for serverless/cloud containers).
+4. Obtain connection URI: `mongodb+srv://<user>:<password>@cluster0.mongodb.net/llm_guardrail?retryWrites=true&w=majority`.
+
+--------------------------------------------------------------------------------
+Step 6.2: Python ML Microservice (Hugging Face Spaces or Render)
+--------------------------------------------------------------------------------
+1. Set Space SDK to `Docker`.
+2. Configure Dockerfile to redirect model caches to `/tmp`:
+   `ENV HF_HOME=/tmp/huggingface TRANSFORMERS_CACHE=/tmp/huggingface`
+3. Expose port `7860` (HF Spaces default) or `8001` (Render).
+4. Set Environment Variables:
+   - `MONGO_URI`: Atlas connection string
+   - `MONGO_DB_NAME`: `llm_guardrail`
+   - `INTERNAL_SERVICE_KEY`: Random 64-char hex string
+   - `INJECTION_DETECTOR_MODE`: `ml`
+   - `GEMINI_API_KEY`, `GROQ_API_KEY`, etc.
+
+--------------------------------------------------------------------------------
+Step 6.3: Node.js Express Gateway (Render / Railway)
+--------------------------------------------------------------------------------
+1. Set Root Directory to `server/`.
+2. Build Command: `npm install`.
+3. Start Command: `node server.js`.
+4. Set Environment Variables:
+   - `PORT`: `5000` (or host provided `$PORT`)
+   - `MONGO_URI`: Atlas connection string
+   - `JWT_SECRET`: Random 64-char hex string
+   - `JWT_EXPIRES_IN`: `7d`
+   - `PYTHON_SERVICE_URL`: URL of deployed Python ML service (e.g. `https://your-space.hf.space`)
+   - `INTERNAL_SERVICE_KEY`: Matching secret from Step 6.2
+   - `CORS_ORIGINS`: Comma-separated URLs of deployed frontends (e.g. `https://eclipse-chat.vercel.app,https://eclipse-admin.vercel.app`)
+
+--------------------------------------------------------------------------------
+Step 6.4: Frontends (Vercel / Netlify)
+--------------------------------------------------------------------------------
+1. User Frontend (`frontend/`):
+   - Build Command: `npm run build`
+   - Output Directory: `dist`
+   - Environment Variable: `VITE_API_BASE=https://your-express-gateway.onrender.com`
+2. Admin Frontend (`admin_frontend/`):
+   - Build Command: `npm run build`
+   - Output Directory: `dist`
+   - Environment Variables:
+     - `VITE_NODE_API_URL=https://your-express-gateway.onrender.com`
+     - `VITE_PYTHON_API_URL=https://your-python-service.hf.space`
+
+================================================================================
+END OF IMPLEMENTATION SPECIFICATION
+================================================================================
