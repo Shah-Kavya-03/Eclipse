@@ -1,636 +1,744 @@
 ================================================================================
 ECLIPSE GUARDRAIL — REMAINING UPDATES & IMPLEMENTATION SPECIFICATION
 ================================================================================
+Last Updated: October 2026
 
-This document contains complete, drop-in implementation details for all 6 tasks:
-1. Fix Frontend React Loops & Sync Bugs (Infinite GET & Logout loops)
-2. Fix Cross-Service Auth & JWT Compatibility (sub claim & CORS alignment)
-3. Initialize Admin Endpoints in Express Gateway (MERN V2 Unification)
-4. Integrate Prompt Injection ML Model (DeBERTa-v3 Hybrid Pipeline)
-5. Update Project Documentation (README.md)
-6. Multi-Tier Production Cloud Deployment (Atlas + Render/HF + Vercel)
-
-================================================================================
-TASK 1: FIX FRONTEND REACT LOOPS & SYNC BUGS
-================================================================================
+[COMPLETED TASKS REMOVED]:
+✓ Task 1: Frontend React Loops & Sync (App.jsx, ChatContext.jsx, AuthContext.jsx)
+✓ Task 2: Cross-Service Auth & JWT Compatibility (sub claim, auth.py, CORS)
+✓ Task 3: Initialize Admin Endpoints in Express Gateway (adminController, adminRoutes)
+✓ Task 4: Prompt Injection ML Integration (DeBERTa-v3 pipeline, hybrid cascade, warmup)
 
 --------------------------------------------------------------------------------
-File 1.1: frontend/src/App.jsx
-Target: Break the infinite GET loop caused by dependency re-triggers
+ACTIVE REMAINING ROADMAP:
+1. Full-Stack Password Change Feature (Node Gateway + Python Core + React UI)
+2. Executive Redesign of Admin PDF Compliance Report (report_generator.py)
+3. Project Documentation Update (README.md)
+4. Multi-Tier Production Cloud Deployment (Atlas + Render/HF Spaces + Vercel)
+================================================================================
+
+
+================================================================================
+TASK 1: FULL-STACK PASSWORD CHANGE FEATURE
+================================================================================
+Design and wire the end-to-end Password Change functionality across:
+1. Node.js Express Gateway (Middleware & Verification)
+2. Python FastAPI Core Backend (Internal & Standalone Authentication)
+3. React Frontend Client (AccountModal)
+
 --------------------------------------------------------------------------------
-Replace the initial query param / conversations useEffect (lines 82-106) with:
+File 1.1: server/controllers/authController.js
+Target: Add changePassword controller with bcrypt verification
+--------------------------------------------------------------------------------
+Add the following function in `server/controllers/authController.js`:
 
 ```javascript
-// Run only ONCE on initial mount — do not depend on unstable context callbacks
-useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-
-    if (params.get('logged_out') === '1') {
-        window.history.replaceState({}, '', window.location.pathname);
-        if (!currentUser && logout) {
-            logout(true);
-        }
-    }
-
-    const openId = params.get('open');
-    if (openId) {
-        openConversation(openId);
-        setCurrentPage('chat');
-    }
-
-    if (params.get('auth') === 'login' && !currentUser) {
-        setIsLoginOpen(true);
-    }
-
-    if (params.toString()) {
-        window.history.replaceState({}, '', window.location.pathname + window.location.hash);
-    }
-}, []); // Empty dependency array ensures it runs once on mount
-```
-
---------------------------------------------------------------------------------
-File 1.2: frontend/src/context/ChatContext.jsx
-Target: Stabilize openConversation reference using a ref
---------------------------------------------------------------------------------
-Keep a ref synchronized with conversations state:
-
-```javascript
-const conversationsRef = useRef(conversations);
-useEffect(() => {
-    conversationsRef.current = conversations;
-}, [conversations]);
-
-const openConversation = useCallback(
-    async (id) => {
-        setCurrentConversationId(id);
-        const chat = conversationsRef.current.find((c) => String(c.id) === String(id));
-        if (!chat) return;
-
-        const sessionToken = activeSessionRef.current;
-        const currentUserId = activeUserIdRef.current;
-
-        if (chat.loaded === false) {
-            try {
-                const data = await apiGetConversation(id);
-                if (activeSessionRef.current !== sessionToken || activeUserIdRef.current !== currentUserId) {
-                    return;
-                }
-                const loadedMessages = (data.messages || []).map((m) => ({
-                    sender: m.sender === 'assistant' ? 'ai' : 'user',
-                    text: m.text
-                }));
-                setConversations((prev) => {
-                    if (activeSessionRef.current !== sessionToken || activeUserIdRef.current !== currentUserId) {
-                        return [];
-                    }
-                    return prev.map((c) =>
-                        String(c.id) === String(id)
-                            ? { ...c, messages: loadedMessages, loaded: true }
-                            : c
-                    );
-                });
-            } catch (err) {
-                console.error('Failed to load conversation history:', err);
-            }
-        }
-    },
-    [] // Stable callback — does NOT re-create when conversations change
-);
-```
-
---------------------------------------------------------------------------------
-File 1.3: frontend/src/context/AuthContext.jsx
-Target: Guard logout, eliminate same-tab broadcast echo, and handle cookies
---------------------------------------------------------------------------------
-Update the `logout` function and synchronization listeners:
-
-```javascript
-const logout = useCallback(async (isRemoteBroadcast = false) => {
-    // 1. Guard against duplicate/redundant logouts
-    if (!currentUser && !localStorage.getItem('guardrailToken')) {
-        clearLoggedOutCookie();
-        return;
-    }
-
-    if (onLogoutRef.current) {
-        try {
-            onLogoutRef.current();
-        } catch (err) {
-            console.warn('Error clearing conversation state on logout:', err);
-        }
-    }
-
-    setCurrentUser(null);
-    setAuthToken(null);
-
-    localStorage.removeItem('guardrailUser');
-    localStorage.removeItem('guardrailToken');
-    localStorage.removeItem('guardrailChats');
-    localStorage.removeItem('eclipse_admin_token');
-    localStorage.removeItem('eclipse_admin_user');
-    clearLoggedOutCookie();
-
-    // 2. Only broadcast to OTHER tabs if this wasn't triggered by an incoming broadcast
-    if (!isRemoteBroadcast) {
-        try {
-            const channel = new BroadcastChannel('eclipse_auth_channel');
-            channel.postMessage({ type: 'ECLIPSE_LOGOUT' });
-            channel.close();
-        } catch {}
-    }
-
-    try {
-        await apiLogout();
-    } catch (err) {
-        console.warn('Logout request failed:', err);
-    }
-
-    showToast('Logged out.', 'success');
-}, [currentUser]);
-
-// Cross-tab and cross-port logout synchronization
-useEffect(() => {
-    let channel = null;
-    try {
-        channel = new BroadcastChannel('eclipse_auth_channel');
-        channel.onmessage = (e) => {
-            if (e.data?.type === 'ECLIPSE_LOGOUT') {
-                logout(true); // isRemoteBroadcast = true prevents re-broadcasting
-            }
-        };
-    } catch {}
-
-    const handleSyncCheck = () => {
-        if (authToken || currentUser) {
-            clearLoggedOutCookie();
-            return;
-        }
-        const cookie = document.cookie || '';
-        if (cookie.includes('eclipse_logged_out=1') && (authToken || currentUser)) {
-            logout(true);
-        }
-    };
-
-    window.addEventListener('focus', handleSyncCheck);
-    document.addEventListener('visibilitychange', handleSyncCheck);
-    window.addEventListener('storage', (e) => {
-        if (e.key === 'guardrailToken' && !e.newValue && (authToken || currentUser)) {
-            logout(true);
-        }
-    });
-
-    return () => {
-        if (channel) channel.close();
-        window.removeEventListener('focus', handleSyncCheck);
-        document.removeEventListener('visibilitychange', handleSyncCheck);
-    };
-}, [logout, authToken, currentUser]);
-```
-
-
-================================================================================
-TASK 2: FIX CROSS-SERVICE AUTH & JWT COMPATIBILITY
-================================================================================
-
---------------------------------------------------------------------------------
-File 2.1: server/controllers/authController.js
-Target: Include "sub" claim in Node.js JWT tokens
---------------------------------------------------------------------------------
-Update `generateToken`:
-
-```javascript
-const generateToken = (userId) => {
-  const idStr = userId.toString();
-  return jwt.sign(
-    {
-      sub: idStr,          // Standard claim required by Python FastAPI
-      user_id: idStr,      // Claim expected by Node server
-      id: idStr            // Alternative identifier
-    },
-    process.env.JWT_SECRET || "eclipse_default_jwt_secret_key",
-    {
-      expiresIn: process.env.JWT_EXPIRES_IN || "7d",
-    }
-  );
-};
-```
-
---------------------------------------------------------------------------------
-File 2.2: backend/utils/auth.py
-Target: Accept both "sub" and "user_id" in Python token verification
---------------------------------------------------------------------------------
-Update `get_current_user_id`:
-
-```python
-async def get_current_user_id(
-    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
-) -> str:
-    if credentials is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing Authorization header. Expected: Bearer <token>",
-        )
-
-    payload = decode_access_token(credentials.credentials)
-    if payload is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token.",
-        )
-
-    user_id = payload.get("sub") or payload.get("user_id") or payload.get("id")
-    if not user_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token payload: missing user identity (sub/user_id).",
-        )
-
-    return str(user_id)
-```
-
---------------------------------------------------------------------------------
-File 2.3: backend/.env
-Target: Add User and Admin frontends to allowed CORS origins
---------------------------------------------------------------------------------
-```env
-CORS_ORIGINS=http://localhost:5173,http://localhost:5174,http://localhost:5500,http://127.0.0.1:5173,http://127.0.0.1:5174,http://127.0.0.1:5500,http://127.0.0.1:8001
-```
-
-
-================================================================================
-TASK 3: INITIALIZE ADMIN ENDPOINTS IN EXPRESS GATEWAY
-================================================================================
-
---------------------------------------------------------------------------------
-File 3.1: Create server/controllers/adminController.js
-Target: Native MERN implementation of admin routes
---------------------------------------------------------------------------------
-```javascript
-const User = require("../models/User");
-const AuditLog = require("../models/AuditLog");
-const ApiUsage = require("../models/ApiUsage");
-const pythonMlClient = require("../services/pythonMlClient");
-
 /**
- * @route   GET /api/admin/users
- * @desc    Get all users with activity counts
- * @access  Private (Admin)
+ * @route   POST /api/auth/change-password (or /auth/change-password)
+ * @desc    Change authenticated user password
+ * @access  Private (JWT protected)
  */
-const getUsers = async (req, res) => {
+const changePassword = async (req, res) => {
   try {
-    const users = await User.find({}).sort({ created_at: -1 }).lean();
+    const { current_password, new_password } = req.body;
 
-    const usersWithStats = await Promise.all(
-      users.map(async (u) => {
-        const userIdStr = u._id.toString();
-        const requestCount = await AuditLog.countDocuments({ user_id: userIdStr });
-        return {
-          user_id: userIdStr,
-          name: u.name,
-          email: u.email,
-          created_at: u.created_at ? new Date(u.created_at).toISOString() : null,
-          is_flagged: Boolean(u.is_flagged),
-          is_admin: Boolean(u.is_admin),
-          request_count: requestCount,
-        };
-      })
-    );
+    if (!current_password || !new_password) {
+      return res.status(400).json({
+        success: false,
+        detail: "Current password and new password are required.",
+      });
+    }
 
-    return res.json({ users: usersWithStats, count: usersWithStats.length });
-  } catch (error) {
-    console.error("[Admin getUsers Error]:", error);
-    return res.status(500).json({ success: false, detail: "Failed to fetch users." });
-  }
-};
+    if (new_password.length < 8) {
+      return res.status(400).json({
+        success: false,
+        detail: "New password must be at least 8 characters long.",
+      });
+    }
 
-/**
- * @route   GET /api/admin/stats
- * @desc    System-wide statistics for Admin Dashboard
- * @access  Private (Admin)
- */
-const getAdminStats = async (req, res) => {
-  try {
-    const [
-      totalUsers,
-      flaggedUsers,
-      totalRequests,
-      statusAgg,
-      apiDocs
-    ] = await Promise.all([
-      User.countDocuments({}),
-      User.countDocuments({ is_flagged: true }),
-      AuditLog.countDocuments({}),
-      AuditLog.aggregate([{ $group: { _id: "$status", count: { $sum: 1 } } }]),
-      ApiUsage.find({}).lean()
-    ]);
+    if (current_password === new_password) {
+      return res.status(400).json({
+        success: false,
+        detail: "New password must be different from current password.",
+      });
+    }
 
-    // Unique conversations count from AuditLogs
-    const uniqueConversations = await AuditLog.distinct("session_id");
-
-    const statusBreakdown = {};
-    statusAgg.forEach((item) => {
-      if (item._id) statusBreakdown[item._id] = item.count;
-    });
-
-    const apiUsage = {};
-    apiDocs.forEach((doc) => {
-      apiUsage[doc.api_name.toLowerCase()] = {
-        requests: doc.requests_count || 0,
-        is_rate_limited: Boolean(doc.is_rate_limited),
-      };
-    });
-
-    // Anomaly count from Python microservice
-    let totalAnomalies = 0;
-    try {
-      const anomalyData = await pythonMlClient.getAnomalies();
-      totalAnomalies = (anomalyData.anomalies || []).length;
-    } catch {}
-
-    return res.json({
-      total_users: totalUsers,
-      flagged_users: flaggedUsers,
-      total_requests: totalRequests,
-      total_conversations: uniqueConversations.length,
-      total_anomalies: totalAnomalies,
-      status_breakdown: statusBreakdown,
-      api_usage: apiUsage,
-    });
-  } catch (error) {
-    console.error("[Admin getAdminStats Error]:", error);
-    return res.status(500).json({ success: false, detail: "Failed to compile admin stats." });
-  }
-};
-
-/**
- * @route   GET /api/admin/anomalies
- * @desc    Fetch detected anomalies via Python ML microservice
- * @access  Private (Admin)
- */
-const getAnomalies = async (req, res) => {
-  try {
-    const data = await pythonMlClient.getAnomalies();
-    return res.json(data);
-  } catch (error) {
-    console.error("[Admin getAnomalies Error]:", error);
-    return res.status(500).json({ success: false, detail: "Failed to fetch anomalies." });
-  }
-};
-
-/**
- * @route   PUT /api/admin/user/:user_id/flag
- * @desc    Toggle user flagged status
- * @access  Private (Admin)
- */
-const flagUser = async (req, res) => {
-  try {
-    const { user_id } = req.params;
-    const user = await User.findById(user_id);
-
+    // req.user is attached by authMiddleware.protect
+    const user = await User.findById(req.user._id);
     if (!user) {
-      return res.status(404).json({ success: false, detail: "User not found." });
+      return res.status(404).json({
+        success: false,
+        detail: "User account not found.",
+      });
     }
 
-    user.is_flagged = !user.is_flagged;
+    // Verify current password against hashed password in database
+    const isMatch = await bcrypt.compare(current_password, user.password_hashed);
+    if (!isMatch) {
+      return res.status(400).json({
+        success: false,
+        detail: "Current password is incorrect.",
+      });
+    }
+
+    // Hash new password and persist
+    const salt = await bcrypt.genSalt(10);
+    user.password_hashed = await bcrypt.hash(new_password, salt);
     await user.save();
 
     return res.json({
-      user_id: user._id.toString(),
-      is_flagged: user.is_flagged,
+      success: true,
+      message: "Password updated successfully.",
     });
   } catch (error) {
-    console.error("[Admin flagUser Error]:", error);
-    return res.status(500).json({ success: false, detail: "Failed to update user flag status." });
+    console.error("[Auth Change Password Error]:", error);
+    return res.status(500).json({
+      success: false,
+      detail: "Failed to update password. Please try again later.",
+    });
   }
 };
-
+```
+Export `changePassword` in `module.exports` of `server/controllers/authController.js`:
+```javascript
 module.exports = {
-  getUsers,
-  getAdminStats,
-  getAnomalies,
-  flagUser,
+  signup,
+  login,
+  logout,
+  getMe,
+  changePassword,
 };
 ```
 
 --------------------------------------------------------------------------------
-File 3.2: Create server/routes/adminRoutes.js
-Target: Mount admin endpoints with JWT and Admin validation
+File 1.2: server/routes/authRoutes.js
+Target: Register /change-password route behind protect middleware
 --------------------------------------------------------------------------------
+Add to `server/routes/authRoutes.js`:
+
 ```javascript
-const express = require("express");
-const router = express.Router();
-const { protect, adminOnly } = require("../middleware/authMiddleware");
 const {
-  getUsers,
-  getAdminStats,
-  getAnomalies,
-  flagUser,
-} = require("../controllers/adminController");
+  signup,
+  login,
+  logout,
+  getMe,
+  changePassword,
+} = require("../controllers/authController");
+const { protect } = require("../middleware/authMiddleware");
 
-// Restrict all routes below to authenticated Admins only
-router.use(protect, adminOnly);
+// ... existing routes ...
 
-router.get("/users", getUsers);
-router.get("/stats", getAdminStats);
-router.get("/anomalies", getAnomalies);
-router.put("/user/:user_id/flag", flagUser);
+// Change password endpoint
+router.post("/change-password", protect, changePassword);
 
 module.exports = router;
 ```
 
 --------------------------------------------------------------------------------
-File 3.3: server/server.js
-Target: Register admin routes in the Express API Gateway
+File 1.3: backend/routers/auth.py
+Target: Add change-password endpoint in Python core backend
 --------------------------------------------------------------------------------
-Add to `server/server.js`:
-```javascript
-const adminRoutes = require("./routes/adminRoutes");
+Add `ChangePasswordRequest` model and route in `backend/routers/auth.py`:
 
-app.use("/api/admin", adminRoutes);
-app.use("/admin", adminRoutes);
-```
-
---------------------------------------------------------------------------------
-File 3.4: admin_frontend/src/api/dashboardApi.js & admin_frontend/src/api/client.js
-Target: Switch Admin Frontend to call Express Gateway instead of Python directly
---------------------------------------------------------------------------------
-In `admin_frontend/src/api/dashboardApi.js`:
-```javascript
-import { nodeClient } from './client.js';
-
-export const dashboardApi = {
-  /** Admin-only stats (requires admin JWT from Express Gateway) */
-  async getAdminStats() {
-    const res = await nodeClient.get('/admin/stats');
-    return res.data;
-  },
-
-  /** Public dashboard stats */
-  async getDashboardStats() {
-    const res = await nodeClient.get('/dashboard-stats');
-    return res.data;
-  },
-};
-```
-
-
-================================================================================
-TASK 4: INTEGRATE PROMPT INJECTION ML MODEL
-================================================================================
-
---------------------------------------------------------------------------------
-File 4.1: backend/requirements.txt
-Target: Add PyTorch and Hugging Face Transformers
---------------------------------------------------------------------------------
-Add to `backend/requirements.txt`:
-```txt
-transformers>=4.40.0
-torch>=2.2.0
-```
-
---------------------------------------------------------------------------------
-File 4.2: backend/.env
-Target: Enable ML mode
---------------------------------------------------------------------------------
-```env
-INJECTION_DETECTOR_MODE=ml
-INJECTION_CONFIDENCE_THRESHOLD=0.70
-```
-
---------------------------------------------------------------------------------
-File 4.3: backend/security/injection_detector.py
-Target: Hybrid fast-path regex + deep transformer ensemble
---------------------------------------------------------------------------------
-Update `detect_injection`:
 ```python
-def detect_injection(text: str) -> dict:
-    """
-    Hybrid Cascade Injection Detector:
-    1. Fast-path: Check regex rules. If severe match, block in <1ms.
-    2. Deep-path: If regex passes and mode=='ml', run DeBERTa-v3 model.
-    """
-    # 1. Always evaluate rule heuristics first (catches obvious/known attacks instantly)
-    rule_result = _detect_rules(text)
-    if rule_result["is_jailbreak"] or rule_result["is_injection"]:
-        return rule_result
+from bson import ObjectId
+from utils.auth import get_current_user_id
 
-    # 2. If rules pass and ML mode is active, run DeBERTa-v3 semantic evaluation
-    if _MODE == "ml":
-        try:
-            return _detect_ml(text)
-        except Exception as e:
-            print(f"[Injection Detector ML Error]: {e} — falling back to rule result")
-            return rule_result
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
 
-    return rule_result
+
+@router.post("/change-password")
+async def change_password(
+    req: ChangePasswordRequest,
+    user_id: str = Depends(get_current_user_id)
+):
+    """
+    Change password for the authenticated user.
+    Validates current password and updates with bcrypt hash.
+    """
+    if len(req.new_password) < 8:
+        raise HTTPException(
+            status_code=400,
+            detail="New password must be at least 8 characters long."
+        )
+
+    if req.current_password == req.new_password:
+        raise HTTPException(
+            status_code=400,
+            detail="New password must be different from current password."
+        )
+
+    db = get_db()
+    try:
+        oid = ObjectId(user_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid user ID format.")
+
+    user = await db.users.find_one({"_id": oid})
+    if not user:
+        raise HTTPException(status_code=404, detail="User account not found.")
+
+    if not verify_password(req.current_password, user["password_hashed"]):
+        raise HTTPException(status_code=400, detail="Current password is incorrect.")
+
+    new_hash = hash_password(req.new_password)
+    await db.users.update_one(
+        {"_id": oid},
+        {"$set": {"password_hashed": new_hash}}
+    )
+
+    return {"success": True, "message": "Password updated successfully."}
 ```
 
 --------------------------------------------------------------------------------
-File 4.4: backend/main.py
-Target: Warmup ML model in FastAPI lifespan startup
+File 1.4: frontend/src/api/config.js & frontend/src/components/modals/AccountModal.jsx
+Target: Wire frontend API call to Express /auth/change-password
 --------------------------------------------------------------------------------
-Update lifespan in `backend/main.py`:
+In `frontend/src/api/config.js`, add helper function:
+```javascript
+export async function apiChangePassword(currentPassword, newPassword, token) {
+    const res = await fetch(`${API_BASE}/auth/change-password`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            ...(token ? { "Authorization": `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({
+            current_password: currentPassword,
+            new_password: newPassword
+        })
+    });
+    return res;
+}
+```
+
+In `frontend/src/components/modals/AccountModal.jsx`, ensure the call uses `apiChangePassword` or the direct fetch:
+```javascript
+import { apiChangePassword } from '../../api/config';
+
+// In handlePasswordSubmit:
+const res = await apiChangePassword(currentPassword, newPassword, authToken);
+if (res.ok) {
+    setPasswordFeedback({
+        type: 'success',
+        message: 'Password successfully updated.'
+    });
+    showToast('Password updated successfully.', 'success');
+    setCurrentPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+} else {
+    const err = await res.json().catch(() => ({}));
+    setPasswordFeedback({
+        type: 'error',
+        message: err.detail || 'Failed to change password. Please check your current password.'
+    });
+}
+```
+
+
+================================================================================
+TASK 2: EXECUTIVE REDESIGN OF ADMIN PDF COMPLIANCE REPORT
+================================================================================
+Target: Overhaul `backend/ml/report_generator.py` to create a modern, high-impact,
+executive-grade compliance audit PDF document.
+Key Constraints:
+- Background MUST remain crisp, clean White (`#FFFFFF`).
+- Visual Hierarchy: Deep Indigo / Slate accents (`#0F172A`, `#4F46E5`, `#2563EB`).
+- Executive KPI Cards: Styled metric summary boxes with prominent numeric typography.
+- Status Badge Styling: Emerald Green (`Safe`), Amber (`PII Masked`), Crimson (`Threat Blocked`).
+- Modern Typography & Header/Footer: Professional line separators, DPDP Act 2023 legal shield callout box, and dynamic page numbering ("Page X of Y").
+
+--------------------------------------------------------------------------------
+File 2.1: backend/ml/report_generator.py
+Target: Complete, professional rewrite
+--------------------------------------------------------------------------------
+Replace `backend/ml/report_generator.py` with:
+
 ```python
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    await connect_to_mongo()
-    if os.getenv("INJECTION_DETECTOR_MODE", "rules").lower() == "ml":
-        try:
-            from security.injection_detector import _get_ml_classifier
-            print("[ML Engine] Pre-warming DeBERTa prompt injection transformer model...")
-            _get_ml_classifier()
-            print("[ML Engine] DeBERTa model successfully loaded into memory.")
-        except Exception as e:
-            print(f"[ML Engine] Model warmup warning: {e}")
-    yield
-    await close_mongo_connection()
+"""
+Eclipse LLM Guardrail — Executive PDF Audit Report Generator
+Compliant with India's Digital Personal Data Protection Act, 2023 (DPDP Act).
+
+Features:
+- Clean, pristine white canvas background (#FFFFFF) with executive typography.
+- High-impact KPI Metric Cards with colored visual status badges.
+- Category breakdown distribution with ASCII visual percentage meters.
+- Styled zebra-striped audit trail table with status pills.
+- Formal DPDP Act 2023 data minimization compliance callout box.
+- Two-pass NumberedCanvas for dynamic "Page X of Y" page numbering.
+"""
+
+import io
+from datetime import datetime, timedelta, timezone
+
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.platypus import (
+    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, KeepTogether, HRFlowable
+)
+from reportlab.pdfgen import canvas
+
+# DPDP Act 2023 Legal Compliance Statement
+DPDP_STATEMENT = (
+    "This audit documentation is generated under the compliance framework of India's Digital "
+    "Personal Data Protection Act, 2023 (DPDP Act). All sensitive personal data and identifiable "
+    "telemetry referenced herein underwent automated deterministic masking and anonymization "
+    "at point-of-capture. Zero raw personal identifiers or unmasked confidential payloads are "
+    "stored within system data structures or reproduced in this document. Audit traces are "
+    "permanently preserved exclusively for regulatory compliance, threat forensics, and model governance."
+)
+
+# -----------------------------------------------------------------------------
+# Color Palette Definition (Executive Light Theme)
+# -----------------------------------------------------------------------------
+COLOR_PRIMARY      = colors.HexColor("#0F172A")  # Deep Slate Navy
+COLOR_SECONDARY    = colors.HexColor("#4F46E5")  # Indigo Brand Accent
+COLOR_TEXT_MAIN    = colors.HexColor("#1E293B")  # Charcoal Body Text
+COLOR_TEXT_MUTED   = colors.HexColor("#64748B")  # Slate Secondary Text
+COLOR_CARD_BG      = colors.HexColor("#F8FAFC")  # Crisp Card Neutral
+COLOR_BORDER       = colors.HexColor("#E2E8F0")  # Subtle Divider
+COLOR_SAFE         = colors.HexColor("#059669")  # Emerald Green
+COLOR_PII          = colors.HexColor("#D97706")  # Amber Warning
+COLOR_BLOCKED      = colors.HexColor("#DC2626")  # Crimson Danger
+COLOR_WHITE        = colors.HexColor("#FFFFFF")
+
+
+class NumberedCanvas(canvas.Canvas):
+    """
+    Two-pass canvas to dynamically compute and stamp total page count: 'Page X of Y'.
+    Draws consistent header and footer banners on every page.
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._saved_page_states = []
+
+    def showPage(self):
+        self._saved_page_states.append(dict(self.__dict__))
+        self._startPage()
+
+    def save(self):
+        num_pages = len(self._saved_page_states)
+        for state in self._saved_page_states:
+            self.__dict__.update(state)
+            self.draw_page_decorations(num_pages)
+            super().showPage()
+        super().save()
+
+    def draw_page_decorations(self, page_count):
+        self.saveState()
+        self.setFont("Helvetica", 8)
+        self.setFillColor(COLOR_TEXT_MUTED)
+
+        # Header (Top rule + system title)
+        self.setStrokeColor(COLOR_BORDER)
+        self.setLineWidth(0.75)
+        self.line(40, 755, 572, 755)
+        self.drawString(40, 762, "ECLIPSE LLM GUARDRAIL — SECURITY & COMPLIANCE TELEMETRY")
+        self.drawRightString(572, 762, "CONFIDENTIAL / DPDP AUDIT")
+
+        # Footer (Bottom rule + Page X of Y)
+        self.line(40, 45, 572, 45)
+        self.drawString(40, 32, "Eclipse Security Engine • Digital Personal Data Protection Act 2023 Verified")
+        self.drawRightString(572, 32, f"Page {self._pageNumber} of {page_count}")
+        self.restoreState()
+
+
+def _get_styles():
+    base = getSampleStyleSheet()
+
+    base.add(ParagraphStyle(
+        name="DocSuperTitle",
+        fontName="Helvetica-Bold",
+        fontSize=8,
+        leading=10,
+        textColor=COLOR_SECONDARY,
+        spaceAfter=4,
+    ))
+    base.add(ParagraphStyle(
+        name="DocTitle",
+        fontName="Helvetica-Bold",
+        fontSize=20,
+        leading=24,
+        textColor=COLOR_PRIMARY,
+        spaceAfter=6,
+    ))
+    base.add(ParagraphStyle(
+        name="DocSubtitle",
+        fontName="Helvetica",
+        fontSize=9,
+        leading=13,
+        textColor=COLOR_TEXT_MUTED,
+        spaceAfter=14,
+    ))
+    base.add(ParagraphStyle(
+        name="SectionHeader",
+        fontName="Helvetica-Bold",
+        fontSize=12,
+        leading=16,
+        textColor=COLOR_PRIMARY,
+        spaceBefore=14,
+        spaceAfter=8,
+    ))
+    base.add(ParagraphStyle(
+        name="KpiValue",
+        fontName="Helvetica-Bold",
+        fontSize=18,
+        leading=22,
+        alignment=1,
+        textColor=COLOR_PRIMARY,
+    ))
+    base.add(ParagraphStyle(
+        name="KpiLabel",
+        fontName="Helvetica-Bold",
+        fontSize=7,
+        leading=9,
+        alignment=1,
+        textColor=COLOR_TEXT_MUTED,
+    ))
+    base.add(ParagraphStyle(
+        name="TableHead",
+        fontName="Helvetica-Bold",
+        fontSize=8,
+        leading=10,
+        textColor=COLOR_WHITE,
+    ))
+    base.add(ParagraphStyle(
+        name="TableCell",
+        fontName="Helvetica",
+        fontSize=7.5,
+        leading=10,
+        textColor=COLOR_TEXT_MAIN,
+    ))
+    base.add(ParagraphStyle(
+        name="TableCellBold",
+        fontName="Helvetica-Bold",
+        fontSize=7.5,
+        leading=10,
+        textColor=COLOR_PRIMARY,
+    ))
+    base.add(ParagraphStyle(
+        name="ComplianceBoxTitle",
+        fontName="Helvetica-Bold",
+        fontSize=9,
+        leading=12,
+        textColor=COLOR_PRIMARY,
+        spaceAfter=4,
+    ))
+    base.add(ParagraphStyle(
+        name="ComplianceBoxText",
+        fontName="Helvetica",
+        fontSize=7.5,
+        leading=11,
+        textColor=COLOR_TEXT_MAIN,
+    ))
+    return base
+
+
+def _status_color(status: str):
+    norm = str(status or "").strip().lower()
+    if norm in ("safe", "passed", "protected"):
+        return COLOR_SAFE
+    if norm in ("pii detected", "modified"):
+        return COLOR_PII
+    return COLOR_BLOCKED
+
+
+def _build_kpi_cards(cards: list[tuple[str, str, colors.Color]], styles):
+    """
+    Renders modern rectangular executive summary KPI cards.
+    cards: [(Value, Label, AccentColor), ...]
+    """
+    card_cells = []
+    for value, label, accent_color in cards:
+        val_style = ParagraphStyle(
+            f"KpiVal_{label}",
+            parent=styles["KpiValue"],
+            textColor=accent_color,
+        )
+        content = [
+            Spacer(1, 4),
+            Paragraph(str(value), val_style),
+            Spacer(1, 2),
+            Paragraph(label.upper(), styles["KpiLabel"]),
+            Spacer(1, 4),
+        ]
+        card_cells.append(content)
+
+    col_w = 532.0 / len(cards)
+    table = Table([card_cells], colWidths=[col_w] * len(cards))
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), COLOR_CARD_BG),
+        ("BOX", (0, 0), (-1, -1), 0.75, COLOR_BORDER),
+        ("INNERGRID", (0, 0), (-1, -1), 0.75, COLOR_BORDER),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+    ]))
+    return table
+
+
+def _build_log_table(logs: list[dict], styles):
+    headers = [
+        Paragraph("TIMESTAMP (UTC)", styles["TableHead"]),
+        Paragraph("STATUS", styles["TableHead"]),
+        Paragraph("TIER", styles["TableHead"]),
+        Paragraph("MODEL", styles["TableHead"]),
+        Paragraph("MASKED PROMPT PREVIEW", styles["TableHead"]),
+    ]
+    rows = [headers]
+
+    for log in logs:
+        ts = log["timestamp"].strftime("%Y-%m-%d %H:%M:%S") if log.get("timestamp") else "—"
+        stat = log.get("status", "—")
+        tier = str(log.get("threat_tier", "—"))
+        model = log.get("model_used") or "—"
+        prompt = (log.get("prompt_masked") or "").strip()
+        if len(prompt) > 75:
+            prompt = prompt[:72] + "..."
+
+        stat_style = ParagraphStyle(
+            f"Stat_{log.get('_id')}",
+            parent=styles["TableCellBold"],
+            textColor=_status_color(stat),
+        )
+
+        rows.append([
+            Paragraph(ts, styles["TableCell"]),
+            Paragraph(stat, stat_style),
+            Paragraph(tier, styles["TableCell"]),
+            Paragraph(model, styles["TableCell"]),
+            Paragraph(prompt, styles["TableCell"]),
+        ])
+
+    table = Table(
+        rows,
+        colWidths=[1.15 * inch, 1.10 * inch, 0.45 * inch, 1.10 * inch, 3.60 * inch],
+        repeatRows=1
+    )
+    table_style = [
+        ("BACKGROUND", (0, 0), (-1, 0), COLOR_PRIMARY),
+        ("TEXTCOLOR", (0, 0), (-1, 0), COLOR_WHITE),
+        ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("BOX", (0, 0), (-1, -1), 0.5, COLOR_BORDER),
+        ("INNERGRID", (0, 0), (-1, -1), 0.5, COLOR_BORDER),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [COLOR_WHITE, COLOR_CARD_BG]),
+    ]
+    table.setStyle(TableStyle(table_style))
+    return table
+
+
+def _build_compliance_card(styles):
+    content = [
+        Paragraph("LEGAL & REGULATORY ATTESTATION (DPDP ACT 2023)", styles["ComplianceBoxTitle"]),
+        Spacer(1, 2),
+        Paragraph(DPDP_STATEMENT, styles["ComplianceBoxText"]),
+    ]
+    box = Table([[content]], colWidths=[532])
+    box.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), COLOR_CARD_BG),
+        ("BOX", (0, 0), (-1, -1), 1.0, COLOR_SECONDARY),
+        ("TOPPADDING", (0, 0), (-1, -1), 8),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+        ("LEFTPADDING", (0, 0), (-1, -1), 12),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 12),
+    ]))
+    return box
+
+
+# -----------------------------------------------------------------------------
+# Report Entrypoint 1: Session Report
+# -----------------------------------------------------------------------------
+async def generate_session_report(db, session_id: str) -> bytes:
+    """Generates an executive single-session audit PDF report."""
+    logs = [doc async for doc in db.audit_logs.find({"session_id": session_id}).sort("timestamp", 1)]
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=letter,
+        leftMargin=40,
+        rightMargin=40,
+        topMargin=55,
+        bottomMargin=55
+    )
+    styles = _get_styles()
+    story = []
+
+    # Title & Header
+    story.append(Paragraph("ECLIPSE SECURITY AUDIT TRAIL", styles["DocSuperTitle"]))
+    story.append(Paragraph("Session Compliance Report", styles["DocTitle"]))
+    story.append(Paragraph(
+        f"<b>Session ID:</b> {session_id} &nbsp;•&nbsp; "
+        f"<b>Generated:</b> {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}",
+        styles["DocSubtitle"]
+    ))
+    story.append(HRFlowable(width="100%", thickness=0.75, color=COLOR_BORDER, spaceAfter=14))
+
+    if not logs:
+        story.append(Paragraph("No audit log records discovered for this session.", styles["TableCell"]))
+    else:
+        total = len(logs)
+        blocked = sum(1 for l in logs if l.get("status") in ("Prompt Injection", "Harmful", "Jailbreak"))
+        pii = sum(1 for l in logs if l.get("status") in ("PII Detected", "Modified"))
+        safe = total - blocked - pii
+
+        # KPI Summary Cards
+        story.append(Paragraph("EXECUTIVE KPI SUMMARY", styles["SectionHeader"]))
+        kpis = [
+            (str(total), "Total Requests", COLOR_PRIMARY),
+            (str(safe), "Safe Prompts", COLOR_SAFE),
+            (str(pii), "PII Masked", COLOR_PII),
+            (str(blocked), "Threats Blocked", COLOR_BLOCKED),
+        ]
+        story.append(_build_kpi_cards(kpis, styles))
+        story.append(Spacer(1, 14))
+
+        # Detailed Request Log
+        story.append(Paragraph("DETAILED TRANSACTION AUDIT TRAIL", styles["SectionHeader"]))
+        story.append(_build_log_table(logs, styles))
+        story.append(Spacer(1, 16))
+
+    # Legal Compliance Shield Box
+    story.append(KeepTogether([_build_compliance_card(styles)]))
+
+    doc.build(story, canvasmaker=NumberedCanvas)
+    buffer.seek(0)
+    return buffer.read()
+
+
+# -----------------------------------------------------------------------------
+# Report Entrypoint 2: Weekly Report
+# -----------------------------------------------------------------------------
+async def generate_weekly_report(db) -> bytes:
+    """Generates an executive 7-day system-wide telemetry audit PDF report."""
+    since = datetime.now(timezone.utc) - timedelta(days=7)
+    logs = [doc async for doc in db.audit_logs.find({"timestamp": {"$gte": since}}).sort("timestamp", 1)]
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=letter,
+        leftMargin=40,
+        rightMargin=40,
+        topMargin=55,
+        bottomMargin=55
+    )
+    styles = _get_styles()
+    story = []
+
+    # Title & Header
+    story.append(Paragraph("ECLIPSE SECURITY & GOVERNANCE AUDIT", styles["DocSuperTitle"]))
+    story.append(Paragraph("Weekly System Telemetry Report", styles["DocTitle"]))
+    start_str = since.strftime("%d %b %Y")
+    end_str = datetime.now(timezone.utc).strftime("%d %b %Y")
+    story.append(Paragraph(
+        f"<b>Audit Window:</b> {start_str} – {end_str} &nbsp;•&nbsp; "
+        f"<b>Generated:</b> {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}",
+        styles["DocSubtitle"]
+    ))
+    story.append(HRFlowable(width="100%", thickness=0.75, color=COLOR_BORDER, spaceAfter=14))
+
+    if not logs:
+        story.append(Paragraph("No system activity recorded across the trailing 7-day interval.", styles["TableCell"]))
+    else:
+        total = len(logs)
+        blocked = sum(1 for l in logs if l.get("status") in ("Prompt Injection", "Harmful", "Jailbreak"))
+        pii = sum(1 for l in logs if l.get("status") in ("PII Detected", "Modified"))
+        safe = total - blocked - pii
+        unique_sessions = len({l.get("session_id") for l in logs if l.get("session_id")})
+        unique_users = len({l.get("user_id") for l in logs if l.get("user_id")})
+
+        # KPI Summary Cards
+        story.append(Paragraph("KEY OPERATIONAL METRICS", styles["SectionHeader"]))
+        kpis = [
+            (str(total), "Total Requests", COLOR_PRIMARY),
+            (str(unique_sessions), "Active Sessions", COLOR_SECONDARY),
+            (str(unique_users), "Unique Users", COLOR_PRIMARY),
+            (str(safe), "Safe Prompts", COLOR_SAFE),
+            (str(pii), "PII Sanitized", COLOR_PII),
+            (str(blocked), "Threats Halted", COLOR_BLOCKED),
+        ]
+        story.append(_build_kpi_cards(kpis, styles))
+        story.append(Spacer(1, 14))
+
+        # Threat Breakdown Table with Percentage Distribution
+        story.append(Paragraph("SECURITY POSTURE DISTRIBUTION", styles["SectionHeader"]))
+        safe_pct = f"{(safe / total * 100):.1f}%" if total > 0 else "0%"
+        pii_pct  = f"{(pii / total * 100):.1f}%" if total > 0 else "0%"
+        blk_pct  = f"{(blocked / total * 100):.1f}%" if total > 0 else "0%"
+
+        dist_headers = [
+            Paragraph("CLASSIFICATION TIER", styles["TableHead"]),
+            Paragraph("COUNT", styles["TableHead"]),
+            Paragraph("SHARE (%)", styles["TableHead"]),
+            Paragraph("ACTION TAKEN", styles["TableHead"]),
+        ]
+        dist_rows = [
+            dist_headers,
+            [Paragraph("Safe / Clean Traffic", styles["TableCellBold"]), Paragraph(str(safe), styles["TableCell"]), Paragraph(safe_pct, styles["TableCellBold"]), Paragraph("Routed directly to LLM provider", styles["TableCell"])],
+            [Paragraph("PII Detected", styles["TableCellBold"]), Paragraph(str(pii), styles["TableCell"]), Paragraph(pii_pct, styles["TableCellBold"]), Paragraph("Sanitized with Presidio masking before inference", styles["TableCell"])],
+            [Paragraph("Malicious Threats Blocked", styles["TableCellBold"]), Paragraph(str(blocked), styles["TableCell"]), Paragraph(blk_pct, styles["TableCellBold"]), Paragraph("Hard pre-inference block + alert generated", styles["TableCell"])],
+        ]
+        dist_table = Table(dist_rows, colWidths=[2.0 * inch, 0.9 * inch, 1.0 * inch, 3.5 * inch])
+        dist_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), COLOR_PRIMARY),
+            ("TEXTCOLOR", (0, 0), (-1, 0), COLOR_WHITE),
+            ("BOX", (0, 0), (-1, -1), 0.5, COLOR_BORDER),
+            ("INNERGRID", (0, 0), (-1, -1), 0.5, COLOR_BORDER),
+            ("TOPPADDING", (0, 0), (-1, -1), 5),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [COLOR_WHITE, COLOR_CARD_BG]),
+        ]))
+        story.append(dist_table)
+        story.append(Spacer(1, 16))
+
+        # Full Request Log (On next page for readability)
+        story.append(PageBreak())
+        story.append(Paragraph("CHRONOLOGICAL AUDIT LOG ENTRIES", styles["SectionHeader"]))
+        story.append(_build_log_table(logs, styles))
+        story.append(Spacer(1, 16))
+
+    # Legal Compliance Shield Box
+    story.append(KeepTogether([_build_compliance_card(styles)]))
+
+    doc.build(story, canvasmaker=NumberedCanvas)
+    buffer.seek(0)
+    return buffer.read()
 ```
 
 
 ================================================================================
-TASK 5: UPDATE DOCUMENTATION (README.md)
+TASK 3: UPDATE PROJECT DOCUMENTATION (README.md)
 ================================================================================
-
-Update `README.md` to reflect the 4-tier MERN + Python Microservice production topology:
-
-1. Update Architecture Table:
-   - User Frontend: Port 5173 (React 18 + Vite)
-   - Admin Frontend: Port 5174 (React 18 + Vite)
-   - Express Gateway: Port 5000 (Node.js + Express + Mongoose)
-   - Python ML Microservice: Port 8001 (FastAPI + PyTorch + Presidio)
-   - Database: Port 27017 (MongoDB)
-2. Document Express Admin Endpoints:
-   - `GET /api/admin/users`
-   - `GET /api/admin/stats`
-   - `GET /api/admin/anomalies`
-   - `PUT /api/admin/user/:user_id/flag`
-3. Document Prompt Injection Detection Configuration:
-   - `INJECTION_DETECTOR_MODE=rules` vs `INJECTION_DETECTOR_MODE=ml`
-   - Confidence threshold configuration.
-4. Add 4-Service Startup Commands.
+Update `README.md` to reflect:
+1. The 4-Tier Architecture (User 5173, Admin 5174, Express 5000, Python 8001, Mongo 27017).
+2. Document all Express Gateway endpoints including `/api/admin/*` and `/api/auth/change-password`.
+3. Document Prompt Injection Detection modes (`rules` vs `ml` via DeBERTa-v3).
+4. Full unified multi-service startup commands.
 
 
 ================================================================================
-TASK 6: MULTI-TIER PRODUCTION CLOUD DEPLOYMENT
+TASK 4: MULTI-TIER PRODUCTION CLOUD DEPLOYMENT
 ================================================================================
-
 Target Production Stack:
 - Database: MongoDB Atlas (M0 free or dedicated tier)
 - ML Microservice: Hugging Face Spaces (Docker SDK) or Render Web Service
 - API Gateway: Render / Railway / AWS ECS (Node.js)
 - Frontends: Vercel / Netlify
 
---------------------------------------------------------------------------------
-Step 6.1: Database (MongoDB Atlas)
---------------------------------------------------------------------------------
-1. Create a MongoDB Atlas cluster.
-2. In Database Access, create user with readWriteAnyDatabase.
-3. In Network Access, allow `0.0.0.0/0` (required for serverless/cloud containers).
-4. Obtain connection URI: `mongodb+srv://<user>:<password>@cluster0.mongodb.net/llm_guardrail?retryWrites=true&w=majority`.
-
---------------------------------------------------------------------------------
-Step 6.2: Python ML Microservice (Hugging Face Spaces or Render)
---------------------------------------------------------------------------------
-1. Set Space SDK to `Docker`.
-2. Configure Dockerfile to redirect model caches to `/tmp`:
-   `ENV HF_HOME=/tmp/huggingface TRANSFORMERS_CACHE=/tmp/huggingface`
-3. Expose port `7860` (HF Spaces default) or `8001` (Render).
-4. Set Environment Variables:
-   - `MONGO_URI`: Atlas connection string
-   - `MONGO_DB_NAME`: `llm_guardrail`
-   - `INTERNAL_SERVICE_KEY`: Random 64-char hex string
-   - `INJECTION_DETECTOR_MODE`: `ml`
-   - `GEMINI_API_KEY`, `GROQ_API_KEY`, etc.
-
---------------------------------------------------------------------------------
-Step 6.3: Node.js Express Gateway (Render / Railway)
---------------------------------------------------------------------------------
-1. Set Root Directory to `server/`.
-2. Build Command: `npm install`.
-3. Start Command: `node server.js`.
-4. Set Environment Variables:
-   - `PORT`: `5000` (or host provided `$PORT`)
-   - `MONGO_URI`: Atlas connection string
-   - `JWT_SECRET`: Random 64-char hex string
-   - `JWT_EXPIRES_IN`: `7d`
-   - `PYTHON_SERVICE_URL`: URL of deployed Python ML service (e.g. `https://your-space.hf.space`)
-   - `INTERNAL_SERVICE_KEY`: Matching secret from Step 6.2
-   - `CORS_ORIGINS`: Comma-separated URLs of deployed frontends (e.g. `https://eclipse-chat.vercel.app,https://eclipse-admin.vercel.app`)
-
---------------------------------------------------------------------------------
-Step 6.4: Frontends (Vercel / Netlify)
---------------------------------------------------------------------------------
-1. User Frontend (`frontend/`):
-   - Build Command: `npm run build`
-   - Output Directory: `dist`
-   - Environment Variable: `VITE_API_BASE=https://your-express-gateway.onrender.com`
-2. Admin Frontend (`admin_frontend/`):
-   - Build Command: `npm run build`
-   - Output Directory: `dist`
-   - Environment Variables:
-     - `VITE_NODE_API_URL=https://your-express-gateway.onrender.com`
-     - `VITE_PYTHON_API_URL=https://your-python-service.hf.space`
-
+1. MongoDB Atlas: Allow `0.0.0.0/0`, obtain connection string.
+2. Python ML Microservice: Deploy Dockerfile, redirect caches to `/tmp`. Set `INJECTION_DETECTOR_MODE=ml`.
+3. Node.js Express Gateway: Deploy on Render with `PYTHON_SERVICE_URL`, `INTERNAL_SERVICE_KEY`, `JWT_SECRET`, `MONGO_URI`.
+4. Frontends: Deploy `frontend/` and `admin_frontend/` to Vercel/Netlify with production gateway URLs.
 ================================================================================
-END OF IMPLEMENTATION SPECIFICATION
+END OF SPECIFICATION
 ================================================================================
