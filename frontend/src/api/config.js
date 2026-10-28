@@ -59,6 +59,21 @@ export async function apiLogout() {
     return fetch(`${API_BASE}/auth/logout`, { method: "POST" });
 }
 
+export async function apiChangePassword(currentPassword, newPassword, token) {
+    const res = await fetch(`${API_BASE}/auth/change-password`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            ...(token ? { "Authorization": `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({
+            current_password: currentPassword,
+            new_password: newPassword
+        })
+    });
+    return res;
+}
+
 export async function apiSendChat(prompt, sessionId, userId) {
     const res = await fetch(`${API_BASE}/chat`, {
         method: "POST",

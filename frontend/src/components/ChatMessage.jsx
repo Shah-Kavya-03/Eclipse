@@ -250,10 +250,11 @@ export default function ChatMessage({ message, isTypingIndicator }) {
     const isUser = message.sender === 'user';
     const icon = isUser ? 'fa-user' : 'fa-shield-halved';
 
+
     const showBlockedDetails =
-        !isUser &&
-        message.status === 'Blocked' &&
-        (message.blocked_reason || message.lime_explanation);
+
+        !isUser && message.status === 'Blocked' && (message.blocked_reason || message.lime_explanation);
+    const hasRedundantTopText = !isUser && showBlockedDetails && (message.text === message.blocked_reason || message.text === message.lime_explanation);
 
     return (
         <div className={`message ${isUser ? 'user-message' : 'ai-message'}`}>
@@ -274,7 +275,7 @@ export default function ChatMessage({ message, isTypingIndicator }) {
                             isUser={true}
                         />
                     ) : (
-                        <MarkdownContent text={message.text} />
+                        !hasRedundantTopText && <MarkdownContent text={message.text} />
                     )}
 
                     {!isUser && <SuspiciousIndicator message={message} />}
@@ -296,7 +297,7 @@ export default function ChatMessage({ message, isTypingIndicator }) {
                                 </div>
                             )}
 
-                            {message.lime_explanation && (
+                            {message.lime_explanation && message.lime_explanation !== message.blocked_reason && (
                                 <div className="lime-explanation">
                                     <i className="fa-solid fa-magnifying-glass"></i>
                                     <span>{message.lime_explanation}</span>

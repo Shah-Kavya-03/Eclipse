@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
-import { API_BASE } from '../../api/config';
+import { apiChangePassword } from '../../api/config';
 
 export default function AccountModal({
     isOpen,
@@ -83,21 +83,18 @@ export default function AccountModal({
             return;
         }
 
+        if (currentPassword === newPassword) {
+            setPasswordFeedback({
+                type: 'error',
+                message: 'New password must be different from current password.'
+            });
+            return;
+        }
+
         setSubmittingPassword(true);
 
         try {
-            // Attempt request against existing backend endpoints
-            const res = await fetch(`${API_BASE}/auth/change-password`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
-                },
-                body: JSON.stringify({
-                    current_password: currentPassword,
-                    new_password: newPassword
-                })
-            });
+            const res = await apiChangePassword(currentPassword, newPassword, authToken);
 
             if (res.ok) {
                 setPasswordFeedback({
@@ -108,12 +105,6 @@ export default function AccountModal({
                 setCurrentPassword('');
                 setNewPassword('');
                 setConfirmPassword('');
-            } else if (res.status === 404 || res.status === 405) {
-                // Honest report when backend does not have change-password route
-                setPasswordFeedback({
-                    type: 'error',
-                    message: 'Password change is not currently supported by the backend API. Please contact the administrator.'
-                });
             } else {
                 const err = await res.json().catch(() => ({}));
                 setPasswordFeedback({
@@ -122,10 +113,9 @@ export default function AccountModal({
                 });
             }
         } catch (error) {
-            // Network failure or unsupported endpoint
             setPasswordFeedback({
                 type: 'error',
-                message: 'Password change is not currently supported by the backend server. Please contact your system administrator.'
+                message: 'Failed to connect to the backend server. Please try again later.'
             });
         } finally {
             setSubmittingPassword(false);

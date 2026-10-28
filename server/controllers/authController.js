@@ -194,9 +194,76 @@ const getMe = async (req, res) => {
   });
 };
 
+/**
+ * @route   POST /api/auth/change-password (or /auth/change-password)
+ * @desc    Change authenticated user password
+ * @access  Private (JWT protected)
+ */
+const changePassword = async (req, res) => {
+  try {
+    const { current_password, new_password } = req.body;
+
+    if (!current_password || !new_password) {
+      return res.status(400).json({
+        success: false,
+        detail: "Current password and new password are required.",
+      });
+    }
+
+    if (new_password.length < 8) {
+      return res.status(400).json({
+        success: false,
+        detail: "New password must be at least 8 characters long.",
+      });
+    }
+
+    if (current_password === new_password) {
+      return res.status(400).json({
+        success: false,
+        detail: "New password must be different from current password.",
+      });
+    }
+
+    // req.user is attached by authMiddleware.protect
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        detail: "User account not found.",
+      });
+    }
+
+    // Verify current password against hashed password in database
+    const isMatch = await bcrypt.compare(current_password, user.password_hashed);
+    if (!isMatch) {
+      return res.status(400).json({
+        success: false,
+        detail: "Current password is incorrect.",
+      });
+    }
+
+    // Hash new password and persist
+    const salt = await bcrypt.genSalt(10);
+    user.password_hashed = await bcrypt.hash(new_password, salt);
+    await user.save();
+
+    return res.json({
+      success: true,
+      message: "Password updated successfully.",
+    });
+  } catch (error) {
+    console.error("[Auth Change Password Error]:", error);
+    return res.status(500).json({
+      success: false,
+      detail: "Failed to update password. Please try again later.",
+    });
+  }
+};
+
 module.exports = {
   signup,
   login,
   logout,
   getMe,
+  changePassword,
 };

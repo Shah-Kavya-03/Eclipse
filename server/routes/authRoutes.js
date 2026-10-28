@@ -6,6 +6,7 @@ const {
   login,
   logout,
   getMe,
+  changePassword,
 } = require("../controllers/authController");
 const { protect } = require("../middleware/authMiddleware");
 
@@ -16,5 +17,6 @@ router.post("/logout", logout);
 
 // Private routes
 router.get("/me", protect, getMe);
+router.post("/change-password", protect, changePassword);
 
 module.exports = router;

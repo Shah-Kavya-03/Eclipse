@@ -6,12 +6,18 @@ written to MongoDB. Tokens are stateless JWTs, so "logout" doesn't
 invalidate anything server-side (see the note on that endpoint).
 """
 
-from fastapi import APIRouter, HTTPException
+from bson import ObjectId
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, EmailStr
 
 from database.connection import get_db
 from database.models import new_user
-from utils.auth import hash_password, verify_password, create_access_token
+from utils.auth import (
+    hash_password,
+    verify_password,
+    create_access_token,
+    get_current_user_id,
+)
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -25,6 +31,11 @@ class SignupRequest(BaseModel):
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
 
 
 def _user_response(user_doc: dict, token: str) -> dict:
@@ -103,3 +114,46 @@ async def logout():
     request, and isn't needed unless you have a concrete case for it.
     """
     return {"message": "Logged out. Discard the token on the client."}
+
+
+@router.post("/change-password")
+async def change_password(
+    req: ChangePasswordRequest,
+    user_id: str = Depends(get_current_user_id)
+):
+    """
+    Change password for the authenticated user.
+    Validates current password and updates with bcrypt hash.
+    """
+    if len(req.new_password) < 8:
+        raise HTTPException(
+            status_code=400,
+            detail="New password must be at least 8 characters long."
+        )
+
+    if req.current_password == req.new_password:
+        raise HTTPException(
+            status_code=400,
+            detail="New password must be different from current password."
+        )
+
+    db = get_db()
+    try:
+        oid = ObjectId(user_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid user ID format.")
+
+    user = await db.users.find_one({"_id": oid})
+    if not user:
+        raise HTTPException(status_code=404, detail="User account not found.")
+
+    if not verify_password(req.current_password, user["password_hashed"]):
+        raise HTTPException(status_code=400, detail="Current password is incorrect.")
+
+    new_hash = hash_password(req.new_password)
+    await db.users.update_one(
+        {"_id": oid},
+        {"$set": {"password_hashed": new_hash}}
+    )
+
+    return {"success": True, "message": "Password updated successfully."}

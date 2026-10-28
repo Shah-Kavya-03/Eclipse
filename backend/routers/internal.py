@@ -100,7 +100,7 @@ async def process_chat(req: ProcessChatRequest):
         return {
             "status": input_classification["status"],
             "response": None,
-            "blocked_reason": lime_explanation,
+            "blocked_reason": f"{input_classification['status']} detected",
             "lime_explanation": lime_explanation,
             "masked_prompt": masked_prompt,
             "model_used": None,

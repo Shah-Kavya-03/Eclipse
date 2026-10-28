@@ -74,7 +74,7 @@ async def chat(req: ChatRequest):
         return {
             "status": input_classification["status"],
             "response": None,
-            "blocked_reason": lime_explanation,
+            "blocked_reason": f"{input_classification['status']} detected",
             "lime_explanation": lime_explanation,
             "masked_prompt": input_classification["masked_text"],
             "model_used": None,
