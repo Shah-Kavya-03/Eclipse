@@ -17,7 +17,20 @@ const PORT = process.env.PORT || 5000;
 connectDB();
 
 // CORS Configuration
-const allowedOrigins = (process.env.CORS_ORIGINS || "*").split(",").map((o) => o.trim());
+const defaultOrigins = [
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "http://127.0.0.1:5173",
+  "http://127.0.0.1:5174",
+  "http://localhost:3000",
+  "http://localhost:5500",
+  "http://127.0.0.1:5500",
+];
+const envOrigins = process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(",").map((o) => o.trim())
+  : [];
+const allowedOrigins = Array.from(new Set([...defaultOrigins, ...envOrigins]));
+
 app.use(
   cors({
     origin: (origin, callback) => {
@@ -71,6 +84,7 @@ const conversationRoutes = require("./routes/conversationRoutes");
 const settingRoutes = require("./routes/settingRoutes");
 const chatRoutes = require("./routes/chatRoutes");
 const logRoutes = require("./routes/logRoutes");
+const adminRoutes = require("./routes/adminRoutes");
 
 app.use("/api/auth", authRoutes);
 app.use("/auth", authRoutes);
@@ -83,6 +97,9 @@ app.use("/settings", settingRoutes);
 
 app.use("/api/chat", chatRoutes);
 app.use("/chat", chatRoutes);
+
+app.use("/api/admin", adminRoutes);
+app.use("/admin", adminRoutes);
 
 app.use("/api", logRoutes);
 app.use("/", logRoutes); // Backwards compatibility for /logs, /dashboard-stats, /anomalies, /report/download

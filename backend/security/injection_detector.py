@@ -45,7 +45,7 @@ _PATTERNS: list[tuple[re.Pattern, str]] = [
 # every local dev startup otherwise, for a mode that's off by default.
 _ml_classifier = None
 _ML_MODEL_NAME = "deepset/deberta-v3-base-injection"
-_ML_CONFIDENCE_THRESHOLD = 0.7
+_ML_CONFIDENCE_THRESHOLD = float(os.getenv("INJECTION_CONFIDENCE_THRESHOLD", "0.70"))
 
 
 def _get_ml_classifier():
@@ -97,16 +97,23 @@ def _detect_ml(text: str) -> dict:
 
 def detect_injection(text: str) -> dict:
     """
-    Scan `text` for prompt-injection / jailbreak patterns.
-
-    Returns:
-        {
-            "is_injection": bool,
-            "is_jailbreak": bool,
-            "matched_patterns": [str, ...]
-        }
+    Hybrid Cascade Injection Detector:
+    1. Fast-path: Check regex rules. If severe match, block in <1ms.
+    2. Deep-path: If regex passes and mode=='ml', run DeBERTa-v3 model.
     """
-    if _MODE == "ml":
-        return _detect_ml(text)
-    return _detect_rules(text)
+    # 1. Always evaluate rule heuristics first (catches obvious/known attacks instantly)
+    rule_result = _detect_rules(text)
+    if rule_result["is_jailbreak"] or rule_result["is_injection"]:
+        return rule_result
+
+    # 2. If rules pass and ML mode is active, run DeBERTa-v3 semantic evaluation
+    mode = os.getenv("INJECTION_DETECTOR_MODE", _MODE).lower()
+    if mode == "ml":
+        try:
+            return _detect_ml(text)
+        except Exception as e:
+            print(f"[Injection Detector ML Error]: {e} — falling back to rule result")
+            return rule_result
+
+    return rule_result
 

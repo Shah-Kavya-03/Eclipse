@@ -28,7 +28,7 @@ const protect = async (req, res, next) => {
       process.env.JWT_SECRET || "eclipse_default_jwt_secret_key"
     );
 
-    const user = await User.findById(decoded.user_id || decoded.id);
+    const user = await User.findById(decoded.sub || decoded.user_id || decoded.id);
 
     if (!user) {
       return res.status(401).json({
@@ -78,7 +78,7 @@ const optionalAuth = async (req, res, next) => {
       token,
       process.env.JWT_SECRET || "eclipse_default_jwt_secret_key"
     );
-    const user = await User.findById(decoded.user_id || decoded.id);
+    const user = await User.findById(decoded.sub || decoded.user_id || decoded.id);
     req.user = user || null;
   } catch (error) {
     req.user = null;

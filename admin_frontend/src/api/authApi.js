@@ -1,12 +1,9 @@
 /**
- * Auth API — wraps the Python backend's /auth/* endpoints.
+ * Auth API — wraps the authentication endpoints.
  *
  * POST /auth/login  → { access_token, token, user_id, name, email, is_admin }
  * POST /auth/logout → { message }
  * GET  /auth/me     → Node.js server only (bearer JWT with "user_id" claim)
- *
- * The Python backend JWT uses "sub" for the user_id claim.
- * Admin routes require is_admin=true in the user document.
  */
 
 import { pyClient, nodeClient, getErrorMessage } from './client.js';
@@ -22,14 +19,15 @@ export const authApi = {
   },
 
   /**
-   * Logout — Python backend just confirms; token is discarded on client.
+   * Logout — notify both Node Express Gateway and Python microservice.
    */
   async logout() {
     try {
+      await nodeClient.post('/auth/logout');
+    } catch {}
+    try {
       await pyClient.post('/auth/logout');
-    } catch {
-      // Ignore errors — logout is client-side anyway
-    }
+    } catch {}
   },
 
   /**

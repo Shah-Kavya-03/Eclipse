@@ -1,5 +1,5 @@
 /**
- * Users API — Python backend, admin JWT required.
+ * Users API — Express Gateway, admin JWT required.
  *
  * GET  /admin/users
  *   Response: { users: [ { user_id, name, email, created_at,
@@ -10,16 +10,16 @@
  *   Response: { user_id, is_flagged }   (toggles the flag)
  */
 
-import { pyClient } from './client.js';
+import { nodeClient } from './client.js';
 
 export const usersApi = {
   async listUsers() {
-    const res = await pyClient.get('/admin/users');
+    const res = await nodeClient.get('/admin/users');
     return res.data; // { users, count }
   },
 
   async flagUser(userId) {
-    const res = await pyClient.put(`/admin/user/${userId}/flag`);
+    const res = await nodeClient.put(`/admin/user/${userId}/flag`);
     return res.data; // { user_id, is_flagged }
   },
 };

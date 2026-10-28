@@ -25,6 +25,14 @@ load_dotenv()
 async def lifespan(app: FastAPI):
     # Startup
     await connect_to_mongo()
+    if os.getenv("INJECTION_DETECTOR_MODE", "rules").lower() == "ml":
+        try:
+            from security.injection_detector import _get_ml_classifier
+            print("[ML Engine] Pre-warming DeBERTa prompt injection transformer model...")
+            _get_ml_classifier()
+            print("[ML Engine] DeBERTa model successfully loaded into memory.")
+        except Exception as e:
+            print(f"[ML Engine] Model warmup warning: {e}")
     yield
     # Shutdown
     await close_mongo_connection()

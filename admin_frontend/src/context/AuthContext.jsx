@@ -228,53 +228,63 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  const logout = useCallback(async () => {
-    isLoggedOutRef.current = true;
-    try {
-      await authApi.logout();
-    } catch {
-      // non-fatal
+  const logout = useCallback(async (isRemoteBroadcast = false) => {
+    // 1. Guard against duplicate/redundant logouts
+    if (!token && !user && !localStorage.getItem(TOKEN_KEY)) {
+      clearLoggedOutCookie();
+      return;
     }
+
+    isLoggedOutRef.current = true;
+
+    // 2. Immediately clear memory and storage
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
     document.cookie = 'eclipse_admin_shared=; path=/; max-age=0; SameSite=Lax';
-    document.cookie = 'eclipse_logged_out=1; path=/; max-age=60; SameSite=Lax';
-
-    try {
-      const channel = new BroadcastChannel('eclipse_auth_channel');
-      channel.postMessage({ type: 'ECLIPSE_LOGOUT' });
-      channel.close();
-    } catch {}
+    clearLoggedOutCookie();
 
     setToken(null);
     setUser(null);
     setError(null);
 
+    // 3. Only broadcast to OTHER tabs if this wasn't triggered by an incoming broadcast
+    if (!isRemoteBroadcast) {
+      try {
+        const channel = new BroadcastChannel('eclipse_auth_channel');
+        channel.postMessage({ type: 'ECLIPSE_LOGOUT' });
+        channel.close();
+      } catch {}
+    }
+
+    // 4. Notify backend without blocking immediate redirection
+    try {
+      await authApi.logout();
+    } catch {}
+
     const hostname = typeof window !== 'undefined' ? (window.location.hostname || 'localhost') : 'localhost';
     window.location.replace(`http://${hostname}:5173/?logged_out=1`);
-  }, []);
+  }, [token, user]);
 
-  // Synchronize cross-tab and cross-port logout
+  // Synchronize cross-tab and cross-port logout safely
   useEffect(() => {
     let channel = null;
     try {
       channel = new BroadcastChannel('eclipse_auth_channel');
       channel.onmessage = (e) => {
         if (e.data?.type === 'ECLIPSE_LOGOUT') {
-          logout();
+          logout(true); // isRemoteBroadcast = true prevents re-broadcasting
         }
       };
     } catch {}
 
     const handleSyncCheck = () => {
-      // If active session is valid, clear any stale logout cookie rather than signing out
       if (token && user?.is_admin) {
         clearLoggedOutCookie();
         return;
       }
       const cookie = document.cookie || '';
       if (cookie.includes('eclipse_logged_out=1') && (token || user)) {
-        logout();
+        logout(true);
       }
     };
 
@@ -282,7 +292,7 @@ export function AuthProvider({ children }) {
     document.addEventListener('visibilitychange', handleSyncCheck);
     window.addEventListener('storage', (e) => {
       if (e.key === TOKEN_KEY && !e.newValue && (token || user)) {
-        logout();
+        logout(true);
       }
     });
 
