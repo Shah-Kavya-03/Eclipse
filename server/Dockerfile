@@ -8,8 +8,8 @@ WORKDIR /app
 # Copy dependency definitions
 COPY package*.json ./
 
-# Install production dependencies
-RUN npm ci --only=production
+# Install production dependencies (supports builds with or without package-lock.json)
+RUN npm install --omit=dev --no-audit
 
 # Copy application files
 COPY . .
@@ -17,4 +17,3 @@ COPY . .
 EXPOSE 5000
 
 CMD ["node", "server.js"]
-
