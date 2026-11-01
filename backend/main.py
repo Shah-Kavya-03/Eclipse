@@ -32,14 +32,16 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"[LLM Router] Provider telemetry seed notice: {e}")
 
-    if os.getenv("INJECTION_DETECTOR_MODE", "rules").lower() == "ml":
+    if os.getenv("PREWARM_ML", "false").lower() == "true" and os.getenv("INJECTION_DETECTOR_MODE", "rules").lower() == "ml":
         try:
             from security.injection_detector import _get_ml_classifier
-            print("[ML Engine] Pre-warming ONNX DistilBERT prompt injection model (~15MB RAM)...")
+            print("[ML Engine] Pre-warming ONNX DistilBERT prompt injection model (~67MB RAM)...")
             _get_ml_classifier()
             print("[ML Engine] ONNX DistilBERT model successfully loaded into memory.")
         except Exception as e:
             print(f"[ML Engine] Model warmup warning: {e}")
+    else:
+        print("[ML Engine] Real INT8 ONNX DistilBERT configured (lazy-loaded on first request for instant port binding).")
     yield
     # Shutdown
     await close_mongo_connection()

@@ -1,7 +1,6 @@
-# Prompt Injection ML Model (ONNX Runtime - ultra-low RAM)
-transformers>=4.40.0
-torch>=2.2.0
+# Real ML Prompt Injection (ONNX Runtime - Zero PyTorch dependency)
 onnxruntime>=1.17.0
+tokenizers>=0.19.0
 huggingface-hub>=0.20.0
 
 fastapi==0.111.0
@@ -14,36 +13,18 @@ email-validator>=2.1.1
 pymongo==4.7.1
 motor==3.4.0
 
-# PII Detection
-# NOTE: Using >= instead of == here on purpose. These pull in spacy's
-# Cython-based dependencies (blis/thinc), which don't always have
-# prebuilt wheels for the newest Python versions. Pinning exact old
-# versions forces pip to compile from source and fails without a C
-# compiler. >= lets pip pick whatever version has a prebuilt wheel
-# for the Python version actually installed.
+# PII Detection (Presidio with lightweight en_core_web_sm)
+# Using >= to allow pre-built wheels across Python minor versions
 presidio-analyzer>=2.2.354
 presidio-anonymizer>=2.2.354
 spacy>=3.7.4
 
-# Toxicity Scoring
-detoxify==0.5.2
-
-# Machine Learning
-# NOTE: >= instead of == for the same reason as spacy above — these
-# pinned versions predate Python 3.13 wheel support and fail trying
-# to compile from source.
+# Machine Learning & Isolation Forest
 scikit-learn>=1.4.2
 numpy>=1.26.4
 pandas>=2.2.2
 
-# Explainability
-lime==0.2.0.1
-
 # LLM APIs
-# NOTE: no dedicated "groq" package — Groq, Cerebras, NVIDIA NIM, and
-# Mistral are all OpenAI-compatible, so the `openai` SDK (pointed at
-# each provider's base_url) handles all four. See
-# llm/openai_compatible_client.py.
 google-generativeai==0.7.0
 openai==1.30.0
 

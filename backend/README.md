@@ -1,3 +1,12 @@
+---
+title: Eclipse ML Guardrail
+emoji: 🛡️
+colorFrom: indigo
+colorTo: blue
+sdk: docker
+app_port: 7860
+---
+
 # LLM Guardrail Backend
 
 ## Every time you sit down to work on this project

@@ -14,15 +14,22 @@ from presidio_anonymizer.entities import OperatorConfig
 # Explicitly configure Presidio to use the lightweight en_core_web_sm (12MB)
 # model pre-installed in Docker, rather than the default en_core_web_lg (400MB)
 # which exceeds cloud free tier RAM (512MB limit).
-_nlp_configuration = {
-    "nlp_engine_name": "spacy",
-    "models": [{"lang_code": "en", "model_name": "en_core_web_sm"}],
-}
-_provider = NlpEngineProvider(nlp_configuration=_nlp_configuration)
-_nlp_engine = _provider.create_engine()
+# Lazy-loaded so FastAPI boots in <0.5s.
+_analyzer = None
+_anonymizer = None
 
-_analyzer = AnalyzerEngine(nlp_engine=_nlp_engine, supported_languages=["en"])
-_anonymizer = AnonymizerEngine()
+def _get_engines():
+    global _analyzer, _anonymizer
+    if _analyzer is None:
+        _nlp_configuration = {
+            "nlp_engine_name": "spacy",
+            "models": [{"lang_code": "en", "model_name": "en_core_web_sm"}],
+        }
+        _provider = NlpEngineProvider(nlp_configuration=_nlp_configuration)
+        _nlp_engine = _provider.create_engine()
+        _analyzer = AnalyzerEngine(nlp_engine=_nlp_engine, supported_languages=["en"])
+        _anonymizer = AnonymizerEngine()
+    return _analyzer, _anonymizer
 
 # Entities we actively look for on user inputs (DPDP Act 2023 compliance).
 INPUT_PII_ENTITIES = [
@@ -82,8 +89,9 @@ def mask_pii(text: str, is_output: bool = False) -> dict:
         }
     """
     entities_to_check = OUTPUT_PII_ENTITIES if is_output else INPUT_PII_ENTITIES
+    analyzer, anonymizer = _get_engines()
 
-    results = _analyzer.analyze(
+    results = analyzer.analyze(
         text=text,
         entities=entities_to_check,
         language="en",
@@ -105,7 +113,7 @@ def mask_pii(text: str, is_output: bool = False) -> dict:
     }
     operators["DEFAULT"] = OperatorConfig("replace", {"new_value": "<REDACTED_PII>"})
 
-    anonymized = _anonymizer.anonymize(
+    anonymized = anonymizer.anonymize(
         text=text,
         analyzer_results=results,
         operators=operators,
