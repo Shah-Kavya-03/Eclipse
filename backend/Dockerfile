@@ -22,7 +22,12 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu && \
     pip install --no-cache-dir -r requirements.txt && \
-pip install --no-cache-dir https://huggingface.co/spacy/en_core_web_sm/resolve/main/en_core_web_sm-any-py3-none-any.whl
+(pip install --no-cache-dir https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl || \
+    (curl -sSL -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" \
+    https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl \
+    -o /tmp/en_core_web_sm-3.8.0-py3-none-any.whl && \
+    pip install --no-cache-dir /tmp/en_core_web_sm-3.8.0-py3-none-any.whl && \
+    rm -f /tmp/en_core_web_sm-3.8.0-py3-none-any.whl))
 
 # Copy application source code
 COPY . .
