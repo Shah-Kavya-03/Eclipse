@@ -36,8 +36,8 @@ RUN pip install --no-cache-dir --upgrade pip && \
       pip install --no-cache-dir /tmp/en_core_web_sm-3.8.0-py3-none-any.whl && \
       rm -f /tmp/en_core_web_sm-3.8.0-py3-none-any.whl))
 
-# Pre-cache DeBERTa ML injection model and Detoxify model during image build
-RUN python -c "from transformers import AutoTokenizer, AutoModelForSequenceClassification; AutoTokenizer.from_pretrained('protectai/deberta-v3-base-prompt-injection-v2'); AutoModelForSequenceClassification.from_pretrained('protectai/deberta-v3-base-prompt-injection-v2')" && \
+# Pre-cache DistilBERT ML injection model and Detoxify model during image build
+RUN python -c "from transformers import AutoTokenizer, AutoModelForSequenceClassification; AutoTokenizer.from_pretrained('fmops/distilbert-prompt-injection'); AutoModelForSequenceClassification.from_pretrained('fmops/distilbert-prompt-injection')" && \
     python -c "from detoxify import Detoxify; Detoxify('original-small')" && \
     chown -R user:user /home/user/.cache
 

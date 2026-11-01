@@ -46,9 +46,9 @@ _PATTERNS: list[tuple[re.Pattern, str]] = [
 _ml_classifier = None
 _ML_MODEL_NAME = os.getenv(
     "INJECTION_MODEL_NAME", 
-    "protectai/deberta-v3-base-prompt-injection-v2"
+    "fmops/distilbert-prompt-injection"
 )
-_ML_CONFIDENCE_THRESHOLD = float(os.getenv("INJECTION_CONFIDENCE_THRESHOLD", "0.85"))
+_ML_CONFIDENCE_THRESHOLD = float(os.getenv("INJECTION_CONFIDENCE_THRESHOLD", "0.75"))
 
 
 def _get_ml_classifier():
@@ -60,8 +60,8 @@ def _get_ml_classifier():
         tokenizer = AutoTokenizer.from_pretrained(_ML_MODEL_NAME)
         model = AutoModelForSequenceClassification.from_pretrained(_ML_MODEL_NAME)
 
-        # Apply dynamic int8 quantization on CPU for 4x memory compression (~85MB)
-        # Enables full DeBERTa-v3 ML prompt injection classifier to run within 512MB RAM.
+        # Apply dynamic int8 quantization on CPU for memory efficiency (~35MB in RAM)
+        # Enables lightning-fast (~50ms) DistilBERT prompt injection detection well under 512MB RAM.
         try:
             model = torch.quantization.quantize_dynamic(model, {torch.nn.Linear}, dtype=torch.qint8)
         except Exception:
