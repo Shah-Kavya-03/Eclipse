@@ -226,7 +226,7 @@ export function ChatProvider({ children }) {
                     ? data.response
                     : data.blocked_reason ||
                     data.lime_explanation ||
-                    'Your message could not be processed.';
+                    data.detail || data.message || 'Your message could not be processed.';
 
                 const aiMessage = {
                     sender: 'ai',

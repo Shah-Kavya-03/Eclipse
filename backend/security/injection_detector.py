@@ -39,7 +39,7 @@ _PATTERNS: list[tuple[re.Pattern, str]] = [
 # ML Engine state (INT8 ONNX Runtime + Rust Tokenizers)
 _ort_session = None
 _tokenizer = None
-_ML_CONFIDENCE_THRESHOLD = float(os.getenv("INJECTION_CONFIDENCE_THRESHOLD", "0.75"))
+_ML_CONFIDENCE_THRESHOLD = float(os.getenv("INJECTION_CONFIDENCE_THRESHOLD", "0.90"))
 
 # Model & Tokenizer path resolution (supports Docker /app/models or local fallback)
 _LOCAL_INT8_MODEL = "/app/models/model_int8.onnx"
@@ -71,8 +71,18 @@ def _get_ml_classifier():
 
         # Load Rust-based tokenizer (pure C/Rust, ~3MB RAM)
         _tokenizer = Tokenizer.from_file(tokenizer_path)
+        cls_id = _tokenizer.token_to_id("[CLS]") or 101
+        sep_id = _tokenizer.token_to_id("[SEP]") or 102
+        try:
+            from tokenizers.processors import BertProcessing
+            _tokenizer.post_processor = BertProcessing(
+                ("[SEP]", sep_id),
+                ("[CLS]", cls_id),
+            )
+        except Exception:
+            pass
         _tokenizer.enable_truncation(max_length=512)
-        _tokenizer.enable_padding(length=512)
+        _tokenizer.enable_padding(direction="right", pad_id=0, pad_token="[PAD]")
 
         # Single-thread sequential execution for minimum memory footprint (<10MB ORT overhead)
         opts = ort.SessionOptions()
@@ -115,9 +125,23 @@ def _detect_ml(text: str) -> dict:
     session, tokenizer = _get_ml_classifier()
     encoded = tokenizer.encode(text)
 
+    input_ids = list(encoded.ids)
+    attention_mask = list(encoded.attention_mask)
+
+    cls_id = tokenizer.token_to_id("[CLS]") or 101
+    sep_id = tokenizer.token_to_id("[SEP]") or 102
+
+    # Defensive boundary check: ensure [CLS] and [SEP] tokens enclose the sequence
+    if not input_ids or input_ids[0] != cls_id:
+        input_ids = [cls_id] + input_ids
+        attention_mask = [1] + attention_mask
+    if input_ids[-1] != sep_id:
+        input_ids = input_ids + [sep_id]
+        attention_mask = attention_mask + [1]
+
     ort_inputs = {
-        "input_ids": np.array([encoded.ids], dtype=np.int64),
-        "attention_mask": np.array([encoded.attention_mask], dtype=np.int64)
+        "input_ids": np.array([input_ids], dtype=np.int64),
+        "attention_mask": np.array([attention_mask], dtype=np.int64)
     }
     ort_outs = session.run(None, ort_inputs)
     logits = ort_outs[0]
