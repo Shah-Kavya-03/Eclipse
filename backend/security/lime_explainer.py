@@ -46,12 +46,19 @@ def explain(classification: dict) -> str:
 
     if status == "Prompt Injection":
         matched = classification["injection"]["matched_patterns"]
-        snippet = matched[0] if matched else "an instruction override attempt"
+        snippet = matched[0] if matched else ""
+        
+        if snippet.startswith("INJECTION (") or snippet.startswith("LABEL_"):
+            return (
+                f"Your message was flagged by our semantic security model ({snippet}) "
+                f"as a potential instruction override. If this was a standard request, "
+                f"try rephrasing your question."
+            )
+        
         return (
             f"Your message was blocked because it looked like an attempt to "
             f"override the assistant's instructions (detected phrase: "
-            f'"{snippet}"). If this was unintentional, try rephrasing your '
-            f"message."
+            f'"{snippet}"). If this was unintentional, try rephrasing your message.'
         )
 
     if status == "Harmful":

@@ -25,6 +25,13 @@ load_dotenv()
 async def lifespan(app: FastAPI):
     # Startup
     await connect_to_mongo()
+    try:
+        from llm.api_router import seed_api_usage
+        await seed_api_usage()
+        print("[LLM Router] Pre-seeded provider telemetry in MongoDB api_usage.")
+    except Exception as e:
+        print(f"[LLM Router] Provider telemetry seed notice: {e}")
+
     if os.getenv("INJECTION_DETECTOR_MODE", "rules").lower() == "ml":
         try:
             from security.injection_detector import _get_ml_classifier

@@ -10,6 +10,7 @@ Endpoints:
 
 import os
 import io
+import asyncio
 from datetime import datetime, timezone
 from typing import Optional, List
 
@@ -19,7 +20,7 @@ from pydantic import BaseModel
 
 from database.connection import get_db
 from database.models import new_audit_log
-from security.threat_classifier import classify, STATUS_SAFE, STATUS_PII
+from security.threat_classifier import classify, classify_output, STATUS_SAFE, STATUS_PII
 from security.lime_explainer import explain
 from llm.api_router import get_completion, FRIENDLY_CAPACITY_MESSAGE
 from ml.anomaly_detector import detect_anomalies
@@ -61,8 +62,8 @@ class ProcessChatRequest(BaseModel):
 async def process_chat(req: ProcessChatRequest):
     db = get_db()
 
-    # ---- 1. Classify incoming prompt ----
-    input_classification = classify(req.prompt)
+    # ---- 1. Classify incoming prompt (async offload to threadpool) ----
+    input_classification = await asyncio.to_thread(classify, req.prompt)
     masked_prompt = input_classification["masked_text"]
 
     input_entities = input_classification.get("pii", {}).get("entities_detected", [])
@@ -149,8 +150,8 @@ async def process_chat(req: ProcessChatRequest):
             "entities_detected": input_entities,
         }
 
-    # ---- 4. Classify LLM response ----
-    output_classification = classify(completion["text"])
+    # ---- 4. Classify LLM response (fast-path async offload) ----
+    output_classification = await asyncio.to_thread(classify_output, completion["text"])
     final_response = output_classification["masked_text"]
     output_entities = output_classification.get("pii", {}).get("entities_detected", [])
     all_entities = input_entities + output_entities

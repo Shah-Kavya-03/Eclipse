@@ -271,7 +271,7 @@ export function AnalyticsPage() {
       </div>
 
       {/* Top Models Utilized */}
-      {modelChartData.length > 0 && (
+
         <div className="card section-gap">
           <div className="card-header">
             <div>
@@ -282,6 +282,7 @@ export function AnalyticsPage() {
             </div>
           </div>
           <div className="card-body">
+            {modelChartData.length > 0 ? (
             <BarChartCard
               title=""
               data={modelChartData}
@@ -289,9 +290,14 @@ export function AnalyticsPage() {
               series={[{ key: 'requests', label: 'Prompts Routed' }]}
               height={200}
             />
+          ) : (
+            <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--text-muted)' }}>
+              No model telemetry available yet. Prompts must be routed through the guardrail to register model usage.
+            </div>
+          )}
           </div>
         </div>
-      )}
+
     </div>
   );
 }

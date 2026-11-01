@@ -10,7 +10,7 @@ import { useTheme } from '../context/ThemeContext.jsx';
 import { ConfirmModal } from '../components/ui/Modal.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 
-const DEFAULT_PROVIDERS = ['gemini', 'groq', 'cerebras', 'nvidia', 'mistral'];
+const DEFAULT_PROVIDERS = ['gemini', 'groq', 'cerebras', 'nvidia', 'openrouter'];
 
 export function SettingsPage() {
   const { user } = useAuth();

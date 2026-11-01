@@ -44,8 +44,11 @@ _PATTERNS: list[tuple[re.Pattern, str]] = [
 # transformers and downloading weights at import time would slow down
 # every local dev startup otherwise, for a mode that's off by default.
 _ml_classifier = None
-_ML_MODEL_NAME = "deepset/deberta-v3-base-injection"
-_ML_CONFIDENCE_THRESHOLD = float(os.getenv("INJECTION_CONFIDENCE_THRESHOLD", "0.70"))
+_ML_MODEL_NAME = os.getenv(
+    "INJECTION_MODEL_NAME", 
+    "protectai/deberta-v3-base-prompt-injection-v2"
+)
+_ML_CONFIDENCE_THRESHOLD = float(os.getenv("INJECTION_CONFIDENCE_THRESHOLD", "0.85"))
 
 
 def _get_ml_classifier():

@@ -10,6 +10,7 @@ User Prompt
     -> return JSON to frontend
 """
 
+import asyncio
 from typing import Optional
 from datetime import datetime, timezone
 
@@ -18,7 +19,7 @@ from pydantic import BaseModel
 
 from database.connection import get_db
 from database.models import new_audit_log, new_conversation, new_message
-from security.threat_classifier import classify, STATUS_SAFE, STATUS_PII
+from security.threat_classifier import classify, classify_output, STATUS_SAFE, STATUS_PII
 from security.lime_explainer import explain
 from llm.api_router import get_completion, FRIENDLY_CAPACITY_MESSAGE
 
@@ -36,8 +37,8 @@ class ChatRequest(BaseModel):
 async def chat(req: ChatRequest):
     db = get_db()
 
-    # ---- 1. Classify the incoming prompt ----
-    input_classification = classify(req.prompt)
+    # ---- 1. Classify the incoming prompt (async offload to threadpool) ----
+    input_classification = await asyncio.to_thread(classify, req.prompt)
 
     # Blocked prompts never reach an LLM and never store raw text.
     if input_classification["blocked"]:
@@ -129,8 +130,8 @@ async def chat(req: ChatRequest):
             "threat_tier": input_classification["threat_tier"],
         }
 
-    # ---- 4. Classify the LLM's response too ----
-    output_classification = classify(completion["text"])
+    # ---- 4. Classify the LLM's response too (fast-path async offload) ----
+    output_classification = await asyncio.to_thread(classify_output, completion["text"])
     final_response = output_classification["masked_text"]  # PII-masked if needed
 
     # ---- 5. Persist conversation ----

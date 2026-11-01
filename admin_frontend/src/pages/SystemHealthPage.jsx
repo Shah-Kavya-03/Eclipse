@@ -61,7 +61,7 @@ export function SystemHealthPage() {
     // 3. Provider statuses via dashboard stats
     try {
       const stats = await dashboardApi.getDashboardStats();
-      const usage = stats?.api_usage_breakdown || {};
+      const usage = stats?.api_usage || stats?.api_usage_breakdown || {};
       const list = Object.entries(usage).map(([name, val]) => ({
         name: name.toUpperCase(),
         requests: val.requests ?? 0,

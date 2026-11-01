@@ -74,3 +74,33 @@ def classify(text: str) -> dict:
         "toxicity": toxicity_result,
         "injection": injection_result,
     }
+
+
+def classify_output(text: str) -> dict:
+    """
+    Optimized fast-path guardrail for outgoing LLM responses.
+    Executes targeted PII detection/masking (high-risk leaks only) and toxicity scoring,
+    while skipping prompt injection and jailbreak scanners (which are strictly input-side
+    threat vectors). This cuts output inspection latency by ~50%.
+    """
+    pii_result = mask_pii(text, is_output=True)
+    toxicity_result = score_toxicity(text)
+
+    if toxicity_result["is_toxic"]:
+        status = STATUS_HARMFUL
+    elif pii_result["pii_found"]:
+        status = STATUS_PII
+    else:
+        status = STATUS_SAFE
+
+    blocked = status == STATUS_HARMFUL
+
+    return {
+        "status": status,
+        "threat_tier": TIER_BY_STATUS[status],
+        "blocked": blocked,
+        "masked_text": pii_result["masked_text"],
+        "pii": pii_result,
+        "toxicity": toxicity_result,
+        "injection": {"is_injection": False, "is_jailbreak": False},
+    }

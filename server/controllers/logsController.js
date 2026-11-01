@@ -120,6 +120,7 @@ const getDashboardStats = async (req, res) => {
       threats_by_type,
       threats_by_hour,
       api_usage: api_usage_breakdown,
+      api_usage_breakdown: api_usage_breakdown,
     });
   } catch (error) {
     console.error("[Dashboard Stats Error]:", error);
@@ -169,7 +170,7 @@ const downloadReport = async (req, res) => {
     res.setHeader(
       "Content-Disposition",
       response.headers["content-disposition"] ||
-        `attachment; filename="guardrail_${type}_report.pdf"`
+      `attachment; filename="guardrail_${type}_report.pdf"`
     );
 
     response.data.pipe(res);

@@ -15,9 +15,8 @@ from presidio_anonymizer.entities import OperatorConfig
 _analyzer = AnalyzerEngine()
 _anonymizer = AnonymizerEngine()
 
-# Entities we actively look for. Presidio supports many more; this
-# list covers what DPDP Act 2023 cares about most for a chat app.
-PII_ENTITIES = [
+# Entities we actively look for on user inputs (DPDP Act 2023 compliance).
+INPUT_PII_ENTITIES = [
     "PERSON",
     "EMAIL_ADDRESS",
     "PHONE_NUMBER",
@@ -28,6 +27,20 @@ PII_ENTITIES = [
     "LOCATION",
     "IP_ADDRESS",
     "DATE_TIME",
+]
+# Kept for backward compatibility
+PII_ENTITIES = INPUT_PII_ENTITIES
+
+# Entities for outgoing LLM responses: Strictly high-risk sensitive data
+# (government IDs, financial credentials, phone numbers).
+# Excludes PERSON (public figures/authors), LOCATION (cities/countries/tech hubs),
+# DATE_TIME (years/timestamps), and IP_ADDRESS (localhost/127.0.0.1 in code) to prevent nonsensical redactions.
+OUTPUT_PII_ENTITIES = [
+    "CREDIT_CARD",
+    "US_SSN",
+    "IN_AADHAAR",
+    "IN_PAN",
+    "PHONE_NUMBER",
 ]
 
 
@@ -45,9 +58,11 @@ ENTITY_LABELS = {
 }
 
 
-def mask_pii(text: str) -> dict:
+def mask_pii(text: str, is_output: bool = False) -> dict:
     """
     Detect and mask PII in `text` with descriptive, understandable placeholders.
+    When is_output=True, only high-risk identifiers (government IDs, financial data, phone numbers)
+    are evaluated to avoid nonsensical redactions on general knowledge, dates, names, and locations.
 
     Returns:
         {
@@ -57,10 +72,13 @@ def mask_pii(text: str) -> dict:
             "entities_detected": [...]    # metadata for DB auditing
         }
     """
+    entities_to_check = OUTPUT_PII_ENTITIES if is_output else INPUT_PII_ENTITIES
+
     results = _analyzer.analyze(
         text=text,
-        entities=PII_ENTITIES,
+        entities=entities_to_check,
         language="en",
+        score_threshold=0.6,
     )
 
     if not results:

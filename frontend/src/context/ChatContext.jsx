@@ -78,7 +78,7 @@ export function ChatProvider({ children }) {
             const fetched = (data.conversations || []).map((conv) => ({
                 id: conv.session_id,
                 title: conv.title || 'New Chat',
-                model: conv.model_used || 'Gemini 2.5 Flash',
+                model: conv.model_used || 'Gemini 3.8 Flash',
                 status: 'Protected',
                 messages: [],
                 pinned: false,

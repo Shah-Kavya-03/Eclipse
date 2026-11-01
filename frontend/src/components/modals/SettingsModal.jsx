@@ -57,8 +57,8 @@ function ThemeTab() {
 
             <div className="theme-options">
                 {[
-                    { value: 'dark',   label: 'Dark',   icon: 'fa-moon'   },
-                    { value: 'light',  label: 'Light',  icon: 'fa-sun'    },
+                    { value: 'dark', label: 'Dark', icon: 'fa-moon' },
+                    { value: 'light', label: 'Light', icon: 'fa-sun' },
                     { value: 'system', label: 'System', icon: 'fa-desktop' },
                 ].map(({ value, label, icon }) => (
                     <button
@@ -79,11 +79,11 @@ function ThemeTab() {
 // AI Provider Tab — Dropdown with supported providers
 // -------------------------------------------------------
 const SUPPORTED_PROVIDERS = [
-    { value: 'gemini',   label: 'Gemini (Default)' },
-    { value: 'groq',     label: 'Groq' },
+    { value: 'gemini', label: 'Gemini (Default)' },
+    { value: 'groq', label: 'Groq' },
     { value: 'cerebras', label: 'Cerebras' },
-    { value: 'nvidia',   label: 'NVIDIA' },
-    { value: 'mistral',  label: 'Mistral' },
+    { value: 'nvidia', label: 'NVIDIA' },
+    { value: 'openrouter', label: 'OpenRouter' },
 ];
 
 function AIModelTab() {

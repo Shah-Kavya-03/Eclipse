@@ -5,10 +5,12 @@ const pythonBaseUrl =
 const internalSecret =
   process.env.INTERNAL_SERVICE_KEY ||
   "eclipse_internal_guardrail_secret_key_2026";
+const serviceTimeout =
+  parseInt(process.env.PYTHON_SERVICE_TIMEOUT, 10) || 120000;
 
 const apiClient = axios.create({
   baseURL: pythonBaseUrl,
-  timeout: 60000,
+  timeout: serviceTimeout,
   headers: {
     "Content-Type": "application/json",
     "X-Internal-Secret": internalSecret,
@@ -39,8 +41,21 @@ const processChat = async ({ prompt, session_id, user_id, provider, history }) =
       );
     }
     console.error(`[Python ML Client Network Error]:`, error.message);
+    if (
+      error.code === "ECONNABORTED" ||
+      (error.message && error.message.toLowerCase().includes("timeout"))
+    ) {
+      throw new Error(
+        `Python ML guardrail service timed out after ${serviceTimeout / 1000} seconds. The pipeline or LLM provider rotation is slow or unresponsive.`
+      );
+    }
+    if (error.code === "ECONNREFUSED") {
+      throw new Error(
+        "Could not connect to Python ML guardrail service on port 8001 (Connection Refused). Please ensure the FastAPI microservice is running: cd backend && uvicorn main:app --host 127.0.0.1 --port 8001"
+      );
+    }
     throw new Error(
-      "Could not connect to Python ML guardrail service. Is the microservice running on port 8001?"
+      `Could not connect to Python ML guardrail service (${error.message}). Is the microservice running on port 8001?`
     );
   }
 };

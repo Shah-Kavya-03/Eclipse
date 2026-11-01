@@ -22,6 +22,17 @@ _env_path = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(_env_path)
 
 
+def _parse_keys(env_var: str) -> list[str]:
+    # Check both plural and singular env vars (e.g. GROQ_API_KEYS or GROQ_API_KEY)
+    raw = os.getenv(f"{env_var}S") or os.getenv(env_var) or ""
+    keys = [
+        k.strip()
+        for k in raw.split(",")
+        if k.strip() and not k.strip().startswith("your_") and "your_" not in k.strip()
+    ]
+    return keys
+
+
 def send(
     messages: list[dict],
     api_key_env_var: str,
@@ -30,57 +41,76 @@ def send(
 ) -> dict:
     """
     Send a conversation history to an OpenAI-compatible endpoint.
-
-    Args:
-        messages: [{"role": "user"|"assistant", "content": str}, ...]
-        api_key_env_var: name of the .env variable holding the API key
-        base_url: provider's OpenAI-compatible base URL
-        model_name: provider's model identifier or list of fallback model identifiers
-
-    Returns:
-        {"text": str, "error": None} on success, or
-        {"text": None, "error": {"type": "rate_limit"|"other", "message": str}}
+    Supports multi-account key pooling: if one key is rate-limited,
+    it automatically cycles to the next key before failing over.
     """
-    api_key = os.getenv(api_key_env_var)
-    if not api_key or api_key.startswith("your_"):
+    keys = _parse_keys(api_key_env_var)
+    if not keys:
         return {
             "text": None,
+            "model_used": None,
             "error": {"type": "other", "message": f"{api_key_env_var} is not set in .env"},
         }
 
     models = [model_name] if isinstance(model_name, str) else list(model_name)
     last_error = None
+    rate_limit_occurred = False
 
-    for m in models:
-        try:
-            client = OpenAI(api_key=api_key, base_url=base_url, timeout=12.0, max_retries=1)
-            response = client.chat.completions.create(
-                model=m,
-                messages=messages,
-            )
-            return {"text": response.choices[0].message.content, "error": None}
+    for api_key in keys:
+        for m in models:
+            try:
+                headers = {}
+                if "openrouter.ai" in base_url:
+                    headers = {
+                        "HTTP-Referer": "http://localhost:5173",
+                        "X-Title": "Eclipse Guardrail",
+                    }
+                client = OpenAI(
+                    api_key=api_key,
+                    base_url=base_url,
+                    timeout=8.0,
+                    max_retries=0,
+                    default_headers=headers if headers else None,
+                )
+                response = client.chat.completions.create(
+                    model=m,
+                    messages=messages,
+                )
+                return {
+                    "text": response.choices[0].message.content,
+                    "model_used": m,
+                    "error": None,
+                }
 
-        except RateLimitError as e:
-            print(f"[{api_key_env_var}] Model '{m}' rate-limited: {e}")
-            return {"text": None, "error": {"type": "rate_limit", "message": str(e)}}
-        except (APIError, Exception) as e:
-            last_error = e
-            error_str = str(e).lower()
-            print(f"[{api_key_env_var}] Model '{m}' attempt failed: {e}")
-            if "429" in error_str or "rate limit" in error_str or "quota" in error_str:
-                return {"text": None, "error": {"type": "rate_limit", "message": str(e)}}
-            if (
-                "404" in error_str
-                or "not_found" in error_str
-                or "does not exist" in error_str
-                or "410" in error_str
-                or "end of life" in error_str
-                or "decommissioned" in error_str
-                or "deprecated" in error_str
-                or "model_decommissioned" in error_str
-                or "model_not_found" in error_str
-            ):
-                continue
-            return {"text": None, "error": {"type": "other", "message": str(e)}}
+            except RateLimitError as e:
+                masked_key = f"...{api_key[-6:]}" if len(api_key) > 6 else api_key
+                print(f"[{api_key_env_var}] Key {masked_key} Model '{m}' rate-limited: {e}")
+                rate_limit_occurred = True
+                last_error = e
+                # Fall over to the next key in the pool for this provider
+                break
+            except (APIError, Exception) as e:
+                last_error = e
+                error_str = str(e).lower()
+                print(f"[{api_key_env_var}] Model '{m}' attempt failed: {e}")
+                if "429" in error_str or "rate limit" in error_str or "quota" in error_str:
+                    rate_limit_occurred = True
+                    # Fall over to the next key in the pool for this provider
+                    break
+                if (
+                    "404" in error_str
+                    or "not_found" in error_str
+                    or "does not exist" in error_str
+                    or "410" in error_str
+                    or "end of life" in error_str
+                    or "decommissioned" in error_str
+                    or "deprecated" in error_str
+                    or "model_decommissioned" in error_str
+                    or "model_not_found" in error_str
+                ):
+                    continue
+                return {"text": None, "model_used": None, "error": {"type": "other", "message": str(e)}}
 
-    return {"text": None, "error": {"type": "other", "message": str(last_error)}}
+    if rate_limit_occurred:
+        return {"text": None, "model_used": None, "error": {"type": "rate_limit", "message": str(last_error)}}
+    return {"text": None, "model_used": None, "error": {"type": "other", "message": str(last_error)}}
