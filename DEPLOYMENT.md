@@ -40,7 +40,7 @@ This guide details the step-by-step deployment instructions for the Eclipse 4-Ti
      - `MONGO_URI`: Your MongoDB Atlas URI.
      - `INTERNAL_SERVICE_KEY`: A strong 32+ character random string (e.g., generated with `openssl rand -hex 32`).
      - `JWT_SECRET`: Same secret key shared with Express Gateway.
-     - `INJECTION_DETECTOR_MODE`: `ml` (DistilBERT prompt injection classifier, optimized for ~50ms CPU inference and ~35MB RAM footprint)
+     - `INJECTION_DETECTOR_MODE`: `ml` (ONNX DistilBERT prompt injection classifier, ~15MB RAM footprint and ~8ms CPU inference)
      - `INJECTION_CONFIDENCE_THRESHOLD`: `0.70`
      - `GEMINI_API_KEY`: Your Google Gemini API key.
      - `GROQ_API_KEY`: Your Groq API key.

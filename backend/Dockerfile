@@ -36,8 +36,8 @@ RUN pip install --no-cache-dir --upgrade pip && \
       pip install --no-cache-dir /tmp/en_core_web_sm-3.8.0-py3-none-any.whl && \
       rm -f /tmp/en_core_web_sm-3.8.0-py3-none-any.whl))
 
-# Pre-cache DistilBERT ML injection model and Detoxify model during image build
-RUN python -c "from transformers import AutoTokenizer, AutoModelForSequenceClassification; AutoTokenizer.from_pretrained('fmops/distilbert-prompt-injection'); AutoModelForSequenceClassification.from_pretrained('fmops/distilbert-prompt-injection')" && \
+# Pre-cache ONNX DistilBERT injection model and Detoxify model during image build
+RUN python -c "from huggingface_hub import hf_hub_download; from transformers import AutoTokenizer; hf_hub_download('protectai/fmops-distilbert-prompt-injection-onnx', 'model.onnx'); AutoTokenizer.from_pretrained('fmops/distilbert-prompt-injection')" && \
     python -c "from detoxify import Detoxify; Detoxify('original-small')" && \
     chown -R user:user /home/user/.cache
 

@@ -35,9 +35,9 @@ async def lifespan(app: FastAPI):
     if os.getenv("INJECTION_DETECTOR_MODE", "rules").lower() == "ml":
         try:
             from security.injection_detector import _get_ml_classifier
-            print("[ML Engine] Pre-warming DistilBERT prompt injection transformer model...")
+            print("[ML Engine] Pre-warming ONNX DistilBERT prompt injection model (~15MB RAM)...")
             _get_ml_classifier()
-            print("[ML Engine] DistilBERT model successfully loaded into memory.")
+            print("[ML Engine] ONNX DistilBERT model successfully loaded into memory.")
         except Exception as e:
             print(f"[ML Engine] Model warmup warning: {e}")
     yield

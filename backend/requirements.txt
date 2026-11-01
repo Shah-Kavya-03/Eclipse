@@ -1,6 +1,8 @@
-# Prompt Injection ML Model
+# Prompt Injection ML Model (ONNX Runtime - ultra-low RAM)
 transformers>=4.40.0
 torch>=2.2.0
+onnxruntime>=1.17.0
+huggingface-hub>=0.20.0
 
 fastapi==0.111.0
 uvicorn==0.29.0
