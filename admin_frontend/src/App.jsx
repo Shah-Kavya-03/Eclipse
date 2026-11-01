@@ -46,7 +46,8 @@ function ProtectedAdminRoute({ children }) {
   if (!isAuthenticated || !isAdmin) {
     const hostname = typeof window !== 'undefined' ? (window.location.hostname || 'localhost') : 'localhost';
     if (typeof window !== 'undefined') {
-      window.location.replace(`http://${hostname}:5173/`);
+      const userUrl = import.meta.env.VITE_USER_FRONTEND_URL || `http://${hostname}:5173/`;
+      window.location.replace(userUrl);
     }
     return null;
   }

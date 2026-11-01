@@ -1,5 +1,5 @@
-export const API_BASE = "http://localhost:5000";
-export const PYTHON_API_BASE = "http://127.0.0.1:8001";
+export const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:5000";
+export const PYTHON_API_BASE = import.meta.env.VITE_PYTHON_API_BASE || "http://127.0.0.1:8001";
 
 /**
  * Maps a backend threat_tier status to the frontend's existing

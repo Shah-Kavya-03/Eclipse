@@ -262,7 +262,8 @@ export function AuthProvider({ children }) {
     } catch {}
 
     const hostname = typeof window !== 'undefined' ? (window.location.hostname || 'localhost') : 'localhost';
-    window.location.replace(`http://${hostname}:5173/?logged_out=1`);
+    const userUrl = import.meta.env.VITE_USER_FRONTEND_URL ? `${import.meta.env.VITE_USER_FRONTEND_URL.replace(/\/$/, '')}/?logged_out=1` : `http://${hostname}:5173/?logged_out=1`;
+    window.location.replace(userUrl);
   }, [token, user]);
 
   // Synchronize cross-tab and cross-port logout safely

@@ -160,14 +160,14 @@ export default function Sidebar({
 
                 {currentUser?.is_admin && (
                     <a
-                        href={`http://${window.location.hostname || 'localhost'}:5174/admin`}
+                        href={import.meta.env.VITE_ADMIN_URL || `http://${window.location.hostname || 'localhost'}:5174/admin`}
                         className="tooltip admin-nav-btn"
                         id="adminSidebarBtn"
                         data-tooltip="Admin Dashboard"
                         onClick={(e) => {
                             e.preventDefault();
                             const hostname = window.location.hostname || 'localhost';
-                            const baseUrl = `http://${hostname}:5174/admin`;
+                            const baseUrl = import.meta.env.VITE_ADMIN_URL || `http://${hostname}:5174/admin`;
                             let url = baseUrl;
                             if (currentUser?.is_admin) {
                                 try {

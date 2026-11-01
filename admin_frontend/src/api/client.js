@@ -59,7 +59,8 @@ const handleAuthError = (error) => {
         channel.close();
       } catch {}
       const hostname = window.location.hostname || 'localhost';
-      window.location.replace(`http://${hostname}:5173/?logged_out=1`);
+      const userUrl = import.meta.env.VITE_USER_FRONTEND_URL ? `${import.meta.env.VITE_USER_FRONTEND_URL.replace(/\/$/, '')}/?logged_out=1` : `http://${hostname}:5173/?logged_out=1`;
+      window.location.replace(userUrl);
     }
   }
   return Promise.reject(error);
