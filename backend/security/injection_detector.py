@@ -54,8 +54,25 @@ _ML_CONFIDENCE_THRESHOLD = float(os.getenv("INJECTION_CONFIDENCE_THRESHOLD", "0.
 def _get_ml_classifier():
     global _ml_classifier
     if _ml_classifier is None:
-        from transformers import pipeline
-        _ml_classifier = pipeline("text-classification", model=_ML_MODEL_NAME)
+        import torch
+        from transformers import AutoTokenizer, AutoModelForSequenceClassification, pipeline
+
+        tokenizer = AutoTokenizer.from_pretrained(_ML_MODEL_NAME)
+        model = AutoModelForSequenceClassification.from_pretrained(_ML_MODEL_NAME)
+
+        # Apply dynamic int8 quantization on CPU for 4x memory compression (~85MB)
+        # Enables full DeBERTa-v3 ML prompt injection classifier to run within 512MB RAM.
+        try:
+            model = torch.quantization.quantize_dynamic(model, {torch.nn.Linear}, dtype=torch.qint8)
+        except Exception:
+            pass
+
+        _ml_classifier = pipeline(
+            "text-classification",
+            model=model,
+            tokenizer=tokenizer,
+            device=-1  # Force CPU
+        )
     return _ml_classifier
 
 

@@ -5,11 +5,21 @@ Used on BOTH the incoming user prompt and the outgoing LLM response
 (see routers/chat.py) — harmful content can appear on either side.
 """
 
+import os
 from detoxify import Detoxify
 
-# Loaded once at import time (loads a model into memory).
-# "original" is the standard English toxicity model.
-_model = Detoxify("original")
+# Use "original-small" (ALBERT-based, ~45MB) instead of "original" (BERT-based, ~420MB)
+# to ensure memory usage stays well under the 512MB RAM ceiling on cloud platforms.
+# Lazy-loaded so FastAPI boots and binds to $PORT in under 2 seconds.
+_MODEL_TYPE = os.getenv("DETOXIFY_MODEL_TYPE", "original-small")
+_model = None
+
+
+def _get_model():
+    global _model
+    if _model is None:
+        _model = Detoxify(_MODEL_TYPE)
+    return _model
 
 # Above this score for any single label, we treat the text as toxic.
 # Detoxify scores are 0.0-1.0 per label. 0.5 is a common default
@@ -37,7 +47,8 @@ def score_toxicity(text: str) -> dict:
             "flagged_labels": [],
         }
 
-    raw_scores = _model.predict(text)
+    model = _get_model()
+    raw_scores = model.predict(text)
     # raw_scores values come back as numpy floats; cast to plain float
     # so this is JSON-serializable without extra handling downstream.
     scores = {label: float(score) for label, score in raw_scores.items()}

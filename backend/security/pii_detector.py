@@ -7,12 +7,21 @@ compliance — see database/models.py). Raw prompts never touch disk.
 """
 
 from presidio_analyzer import AnalyzerEngine
+from presidio_analyzer.nlp_engine import NlpEngineProvider
 from presidio_anonymizer import AnonymizerEngine
 from presidio_anonymizer.entities import OperatorConfig
 
-# These are loaded once at import time (model loading is slow) and
-# reused across every request.
-_analyzer = AnalyzerEngine()
+# Explicitly configure Presidio to use the lightweight en_core_web_sm (12MB)
+# model pre-installed in Docker, rather than the default en_core_web_lg (400MB)
+# which exceeds cloud free tier RAM (512MB limit).
+_nlp_configuration = {
+    "nlp_engine_name": "spacy",
+    "models": [{"lang_code": "en", "model_name": "en_core_web_sm"}],
+}
+_provider = NlpEngineProvider(nlp_configuration=_nlp_configuration)
+_nlp_engine = _provider.create_engine()
+
+_analyzer = AnalyzerEngine(nlp_engine=_nlp_engine, supported_languages=["en"])
 _anonymizer = AnonymizerEngine()
 
 # Entities we actively look for on user inputs (DPDP Act 2023 compliance).
