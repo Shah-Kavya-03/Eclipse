@@ -46,7 +46,7 @@ This guide details the step-by-step deployment instructions for the Eclipse 4-Ti
      - `GROQ_API_KEY`: Your Groq API key.
      - `CEREBRAS_API_KEY`: Your Cerebras API key.
      - `NVIDIA_API_KEY`: Your NVIDIA NIM API key.
-     - `MISTRAL_API_KEY`: Your Mistral AI API key.
+     - `OPENROUTER_API_KEY`: Your OpenRouter API key.
 3. **Deploy Repository:**
    - Push the contents of the `backend/` directory to the Space's Git repository.
    - The included `backend/Dockerfile` redirects caches (`/tmp/huggingface`, `/tmp/cache`) and binds to port `7860`.
