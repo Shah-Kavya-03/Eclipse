@@ -32,18 +32,11 @@ RUN pip install --no-cache-dir --upgrade pip && \
       pip install --no-cache-dir /tmp/en_core_web_sm-3.8.0-py3-none-any.whl && \
       rm -f /tmp/en_core_web_sm-3.8.0-py3-none-any.whl))
 
-# Pre-download and quantize DistilBERT Prompt Injection model to INT8 (268MB -> 67MB)
-# Runs during docker build (8GB RAM) so runtime never hits memory spikes or downloads
-RUN python -c "from huggingface_hub import hf_hub_download; \
-from onnxruntime.quantization import quantize_dynamic, QuantType; \
-import os; \
-print('[Build] Downloading DistilBERT ONNX weights & tokenizer...'); \
-hf_hub_download('protectai/fmops-distilbert-prompt-injection-onnx', 'model.onnx', local_dir='/app/models'); \
-hf_hub_download('protectai/fmops-distilbert-prompt-injection-onnx', 'tokenizer.json', local_dir='/app/models'); \
-print('[Build] Quantizing model graph to INT8 for 512MB RAM compliance...'); \
-quantize_dynamic('/app/models/model.onnx', '/app/models/model_int8.onnx', weight_type=QuantType.QUInt8); \
-os.remove('/app/models/model.onnx'); \
-print('[Build] Quantization complete. Saved /app/models/model_int8.onnx (67MB)')" && \
+# Download & quantize DistilBERT Prompt Injection model to INT8 (268MB -> ~67MB)
+COPY scripts/prepare_model.py /tmp/prepare_model.py
+RUN python /tmp/prepare_model.py && \
+    pip uninstall -y onnx && \
+    rm -f /tmp/prepare_model.py && \
     chown -R user:user /app/models /home/user/.cache
 
 # Copy application source code
