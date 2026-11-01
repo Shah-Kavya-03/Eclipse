@@ -29,13 +29,13 @@ def create_access_token(data: dict) -> str:
     {"sub": user_id} — "sub" (subject) is the standard JWT claim for
     "who this token is about".
     """
-    secret_key = os.getenv("SECRET_KEY")
+    secret_key = os.getenv("SECRET_KEY") or os.getenv("JWT_SECRET")
     algorithm = os.getenv("ALGORITHM", "HS256")
     expire_minutes = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
 
     if not secret_key or secret_key == "your_secret_key_here":
         raise RuntimeError(
-            "SECRET_KEY is not set (or still the placeholder) in .env. "
+            "SECRET_KEY / JWT_SECRET is not set (or still the placeholder) in .env. "
             "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\""
         )
 
@@ -48,7 +48,7 @@ def create_access_token(data: dict) -> str:
 
 def decode_access_token(token: str) -> dict | None:
     """Returns the token's payload dict if valid, or None if invalid/expired."""
-    secret_key = os.getenv("SECRET_KEY")
+    secret_key = os.getenv("SECRET_KEY") or os.getenv("JWT_SECRET")
     algorithm = os.getenv("ALGORITHM", "HS256")
 
     try:
